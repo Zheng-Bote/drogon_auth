@@ -132,6 +132,7 @@ Always use Doxygen style comments in English for every public entity.
 - README.md must contain an architecture overview.
 - Use Mermaid diagrams for all architectural views (Class, Sequence, Component, etc.) stored in `docs/architecture/`.
 - Detailed documentation stays in `docs/documentation/`.
+- Architecture model can be C4, Archimate, or UML.
 
 ## 8. Tooling & Quality
 

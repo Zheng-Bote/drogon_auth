@@ -27,6 +27,7 @@ namespace drogon_auth {
  */
 struct UserProfile {
     std::string id;
+    std::string loginname;
     std::string email;
     bool totp_enabled;
 };

@@ -12,37 +12,66 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# --- Configure (für rz_config.hpp) ---
+set(EXECUTABLE_NAME "${PROJECT_NAME}")
+set(PROG_LONGNAME "Native C++ Dependency Scanner & SBOM Generator")
+set(PROG_CREATED "2026")
+set(PROG_AUTHOR "ZHENG Bote")
+set(PROG_ORGANIZATION_NAME "ZHENG Robert")
+set(PROG_ORGANIZATION_DOMAIN "net.hase-zheng")
+# create rz_config.hpp
+add_subdirectory(configure)
+
+
+# --- Dependencies via FetchContent ---
+set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE ALWAYS)
+include(FetchContent)
+
+FetchContent_Declare(
+  gh_update_checker
+  GIT_REPOSITORY https://github.com/Zheng-Bote/gh-update-checker.git
+  GIT_TAG        v1.0.8
+)
+
+FetchContent_MakeAvailable(gh_update_checker)
+
 # Find Conan dependencies
-find_package(drogon REQUIRED)
-find_package(libsodium REQUIRED)
+find_package(Drogon REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Catch2 REQUIRED)
+find_package(argon2 REQUIRED)
+find_package(CURL REQUIRED)
+
 
 add_executable(${PROJECT_NAME} 
     src/main.cpp
     src/config_util.cpp
     src/auth_srv.cpp
     src/auth_ctrl.cpp
+    src/system_ctrl.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Drogon::Drogon
-    libsodium::libsodium
     jwt-cpp::jwt-cpp
     OpenSSL::SSL
     OpenSSL::Crypto
+    argon2::argon2
+    gh_update_checker::gh_update_checker
+    CURL::libcurl
+    gssapi_krb5
 )
 
 # libs.txt Generate (timing-safe via GENERATE)
-file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/libs.txt"
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_libs.txt"
      CONTENT "$<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>")
 
 # Tests
 enable_testing()
 add_executable(test_auth tests/test_auth.cpp src/config_util.cpp src/auth_srv.cpp)
 target_include_directories(test_auth PRIVATE include)
-target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain libsodium::libsodium jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto Drogon::Drogon)
+target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto argon2::argon2 Drogon::Drogon gssapi_krb5)
 add_test(NAME test_auth COMMAND test_auth)

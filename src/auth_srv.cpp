@@ -16,10 +16,11 @@
  */
 #include "auth_srv.hpp"
 #include "config_util.hpp"
-#include <sodium.h>
+#include <argon2.h>
 #include <random>
 #include <vector>
 #include <sstream>
+#include <cstring>
 #include <iomanip>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -28,24 +29,42 @@
 namespace drogon_auth {
 
 std::expected<std::string, std::string> AuthSrv::hash_password(const std::string& password) {
-    if (sodium_init() < 0) {
-        return std::unexpected("Failed to initialize libsodium");
+    uint32_t t_cost = ConfigUtil::get_int("ARGON2_ITERATIONS", 3);
+    uint32_t m_cost = ConfigUtil::get_int("ARGON2_MEMORY", 65536); // directly use KB
+    uint32_t parallelism = ConfigUtil::get_int("ARGON2_PARALLELISM", 1);
+    
+    const uint32_t hash_len = 32;
+    const uint32_t salt_len = 16;
+    
+    uint8_t salt[salt_len];
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<uint16_t> dis(0, 255);
+    for (uint32_t i = 0; i < salt_len; ++i) {
+        salt[i] = static_cast<uint8_t>(dis(gen));
     }
-
-    int opslimit = ConfigUtil::get_int("ARGON2_ITERATIONS", 3);
-    int memlimit = ConfigUtil::get_int("ARGON2_MEMORY", 65536) * 1024; // convert KB to bytes
-
-    char hashed[crypto_pwhash_STRBYTES];
-    if (crypto_pwhash_str(hashed, password.c_str(), password.length(), opslimit, memlimit) != 0) {
-        return std::unexpected("Out of memory during password hashing");
+    
+    size_t encoded_len = argon2_encodedlen(t_cost, m_cost, parallelism, salt_len, hash_len, Argon2_id);
+    std::string encoded(encoded_len, '\0');
+    
+    int result = argon2id_hash_encoded(
+        t_cost, m_cost, parallelism, 
+        password.c_str(), password.length(), 
+        salt, salt_len, hash_len, 
+        encoded.data(), encoded_len
+    );
+    
+    if (result != ARGON2_OK) {
+        return std::unexpected(argon2_error_message(result));
     }
-
-    return std::string(hashed);
+    
+    encoded.resize(strlen(encoded.c_str()));
+    return encoded;
 }
 
 bool AuthSrv::verify_password(const std::string& password, const std::string& hash) {
-    if (sodium_init() < 0) return false;
-    return crypto_pwhash_str_verify(hash.c_str(), password.c_str(), password.length()) == 0;
+    int result = argon2id_verify(hash.c_str(), password.c_str(), password.length());
+    return result == ARGON2_OK;
 }
 
 std::string AuthSrv::generate_session_token() {

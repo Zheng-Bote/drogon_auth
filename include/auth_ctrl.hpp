@@ -18,6 +18,8 @@
 
 #include <drogon/HttpController.h>
 
+#include <drogon/utils/coroutine.h>
+
 namespace drogon_auth {
 
 /**
@@ -33,49 +35,20 @@ public:
     ADD_METHOD_TO(AuthCtrl::me, "/api/v1/me", drogon::Get);
     ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/v1/totp/setup", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/v1/totp/verify", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::change_password, "/api/v1/password/change", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/v1/password/reset-request", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/v1/password/reset-confirm", drogon::Post);
     METHOD_LIST_END
 
-    /**
-     * @brief Register a new user.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void register_user(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
-
-    /**
-     * @brief Log in a user and create a session.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void login(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
-
-    /**
-     * @brief Log out the user and invalidate session.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void logout(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
-
-    /**
-     * @brief Get current user profile.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void me(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
-
-    /**
-     * @brief Setup TOTP for the logged in user.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void totp_setup(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
-
-    /**
-     * @brief Verify TOTP code.
-     * @param req The HTTP request.
-     * @param callback The HTTP response callback.
-     */
-    void totp_verify(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& callback);
+    drogon::Task<drogon::HttpResponsePtr> register_user(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> login(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> logout(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> me(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> totp_setup(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> totp_verify(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> change_password(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> reset_password_request(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> reset_password_confirm(drogon::HttpRequestPtr req);
 };
 
 } // namespace drogon_auth

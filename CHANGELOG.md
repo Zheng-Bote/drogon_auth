@@ -1,0 +1,17 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-04-24
+### Added
+- Initial release of Drogon Auth Microservice.
+- Implementation of C++23 based HTTP controllers and services.
+- Argon2id explicit password hashing via the `argon2` C library.
+- Secure Session handling with HttpOnly cookies.
+- TOTP 2FA setup and verification endpoints.
+- PostgreSQL and SQLite3 database configuration via `.env`.
+- Password change and reset functionality using C++20 Coroutines.
+- Complete API documentation and architecture diagrams.

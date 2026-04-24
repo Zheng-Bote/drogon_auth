@@ -63,22 +63,26 @@ Modify `.env` to set secure values:
 - **Audit Logging**: Write to `audit_logs` table for every login attempt.
 - **Secret Rotation**: Rotate `JWT_SECRET` periodically; invalidates existing JWT tokens.
 
-## Kommnentar
+## API Documentation
 
-### Sicherheitskritische Stellen & Secrets (Empfehlungen)
+The following table describes the implemented endpoints:
 
-- **DB_PASSWORD**: (.env) Sollte ein starkes Passwort für die DB-Zugriffskontrolle sein.
-- **JWT_SECRET**: (.env) MUSS zwingend ein langer, sicherer Zufallsstring sein, z. B. generiert über openssl rand -hex 32.
-- **auth_ctrl.cpp:login**: Hier muss zwingend ein Session-Cookie gesetzt werden. Setze dort die Flags HttpOnly, Secure (falls unter HTTPS) und SameSite=Strict.
-- **auth_srv.cpp:verify_totp**: In einer produktiven Umgebung muss das RFC 6238-konforme Verfahren implementiert sein (derzeit als Mock realisiert). Die HMAC-Generierung über OpenSSL-Libraries ist der sicherste Weg hierfür.
+| Endpoint | Method | JSON Body Parameters | Description |
+|---|---|---|---|
+| `/api/v1/register` | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
+| `/api/v1/login` | `POST` | `loginname` OR `email` (str), `password` (str) | Authenticates a user. Sets secure HttpOnly cookie and logs attempt. |
+| `/api/v1/logout` | `POST` | *None* | Invalidates the active session and clears the cookie. |
+| `/api/v1/me` | `GET` | *None* | Returns the current user's profile information. |
+| `/api/v1/totp/setup` | `POST` | *None* | Generates a new TOTP secret for the user and returns the `otpauth://` URI. |
+| `/api/v1/totp/verify` | `POST` | `code` (str) | Verifies a 6-digit TOTP code against the user's stored secret. |
+| `/api/v1/password/change` | `POST` | `old_password` (str), `new_password` (str) | Allows an authenticated user to change their password. |
+| `/api/v1/password/reset-request` | `POST` | `email` (str) | Generates a password reset token for the specified email. |
+| `/api/v1/password/reset-confirm` | `POST` | `token` (str), `new_password` (str) | Resets the password using a valid reset token. |
+| `/api/system/getVersion` | `GET` | *None* | Returns the current version of the microservice. |
+| `/api/system/health-check` | `GET` | *None* | Checks Drogon server status and Database connection. |
+| `/api/system/check-update` | `GET` | *None* | Checks GitHub for a newer version of the microservice. |
+| `/api/system/sys-info` | `GET` | *None* | Returns detailed project metadata and compiler information. |
 
-### Security-Checklist
+## Architecture
 
-- **Argon2 Parameter**: Werte für Memory, Iterations und Parallelism werden zur Laufzeit konfiguriert (aus .env oder mit sicheren Defaults versehen).
-- **HTTPS**: Drogon oder ein Reverse-Proxy (wie Nginx/HAProxy) erzwingt TLS-Absicherung der Endpunkte.
-- **Cookie Flags**: Cookies sind zwingend mit HttpOnly, Secure (bei HTTPS) und SameSite=Strict zu definieren.
-- **DB-User Rechte**: Die Anwendung läuft auf einem abgetrennten PostgreSQL-User, der nur DML-Operationen auf sein Schema anwenden darf.
-- **Rate-Limiting**: Simple In-Memory Limits (z. B. Drogon Plugin RateLimiter) zum Schutz vor automatisierten Attacken einfügen.
-- **Brute-Force Schutz**: Kontosperre nach x-fehlgeschlagenen Login-Versuchen wird per Auth-Service implementiert.
-- **Audit Logging**: Die Tabelle audit_logs ist vorbereitet, um kritische Account-Aktionen (Anmeldung, Logout, 2FA-Änderung) nachvollziehbar zu protokollieren.
-- **Secret Rotation**: Ablauf-Routinen für den periodischen Wechsel des JWT-Signing-Keys (bzw. Neuvergabe von Session-Tokens) vorbereiten.
+For a detailed architectural overview using C4 Model, please view the [Component Diagram](docs/architecture/component_diagram.md).
