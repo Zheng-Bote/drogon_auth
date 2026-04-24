@@ -4,7 +4,7 @@ A high-performance C++23 based authentication microservice using the Drogon web 
 
 ## Project Overview
 
-This service provides a complete authentication solution including Argon2 password hashing, JWT/Session tokens, and TOTP for 2FA. It uses PostgreSQL (or SQLite3 fallback) for data persistence. It is designed to be fully modular and extensible for features like RBAC.
+This service provides a complete authentication solution including Argon2id password hashing, JWT/Session tokens, and TOTP for 2FA. It uses PostgreSQL (or SQLite3 fallback) for data persistence. It is designed to be fully modular and extensible for features like RBAC.
 
 ## Architecture & Extensibility
 
@@ -67,21 +67,21 @@ Modify `.env` to set secure values:
 
 The following table describes the implemented endpoints:
 
-| Endpoint | Method | JSON Body Parameters | Description |
-|---|---|---|---|
-| `/api/v1/register` | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
-| `/api/v1/login` | `POST` | `loginname` OR `email` (str), `password` (str) | Authenticates a user. Sets secure HttpOnly cookie and logs attempt. |
-| `/api/v1/logout` | `POST` | *None* | Invalidates the active session and clears the cookie. |
-| `/api/v1/me` | `GET` | *None* | Returns the current user's profile information. |
-| `/api/v1/totp/setup` | `POST` | *None* | Generates a new TOTP secret for the user and returns the `otpauth://` URI. |
-| `/api/v1/totp/verify` | `POST` | `code` (str) | Verifies a 6-digit TOTP code against the user's stored secret. |
-| `/api/v1/password/change` | `POST` | `old_password` (str), `new_password` (str) | Allows an authenticated user to change their password. |
-| `/api/v1/password/reset-request` | `POST` | `email` (str) | Generates a password reset token for the specified email. |
-| `/api/v1/password/reset-confirm` | `POST` | `token` (str), `new_password` (str) | Resets the password using a valid reset token. |
-| `/api/system/getVersion` | `GET` | *None* | Returns the current version of the microservice. |
-| `/api/system/health-check` | `GET` | *None* | Checks Drogon server status and Database connection. |
-| `/api/system/check-update` | `GET` | *None* | Checks GitHub for a newer version of the microservice. |
-| `/api/system/sys-info` | `GET` | *None* | Returns detailed project metadata and compiler information. |
+| Endpoint                         | Method | JSON Body Parameters                               | Description                                                                             |
+| -------------------------------- | ------ | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/api/v1/register`               | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
+| `/api/v1/login`                  | `POST` | `loginname` OR `email` (str), `password` (str)     | Authenticates a user. Sets secure HttpOnly cookie and logs attempt.                     |
+| `/api/v1/logout`                 | `POST` | _None_                                             | Invalidates the active session and clears the cookie.                                   |
+| `/api/v1/me`                     | `GET`  | _None_                                             | Returns the current user's profile information.                                         |
+| `/api/v1/totp/setup`             | `POST` | _None_                                             | Generates a new TOTP secret for the user and returns the `otpauth://` URI.              |
+| `/api/v1/totp/verify`            | `POST` | `code` (str)                                       | Verifies a 6-digit TOTP code against the user's stored secret.                          |
+| `/api/v1/password/change`        | `POST` | `old_password` (str), `new_password` (str)         | Allows an authenticated user to change their password.                                  |
+| `/api/v1/password/reset-request` | `POST` | `email` (str)                                      | Generates a password reset token for the specified email.                               |
+| `/api/v1/password/reset-confirm` | `POST` | `token` (str), `new_password` (str)                | Resets the password using a valid reset token.                                          |
+| `/api/system/getVersion`         | `GET`  | _None_                                             | Returns the current version of the microservice.                                        |
+| `/api/system/health-check`       | `GET`  | _None_                                             | Checks Drogon server status and Database connection.                                    |
+| `/api/system/check-update`       | `GET`  | _None_                                             | Checks GitHub for a newer version of the microservice.                                  |
+| `/api/system/sys-info`           | `GET`  | _None_                                             | Returns detailed project metadata and compiler information.                             |
 
 ## Architecture
 

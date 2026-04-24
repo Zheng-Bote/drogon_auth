@@ -43,6 +43,11 @@ find_package(Catch2 REQUIRED)
 find_package(argon2 REQUIRED)
 find_package(CURL REQUIRED)
 
+# Force libpq to link against GSSAPI (because Conan built it with GSSAPI)
+if(TARGET libpq::libpq)
+    set_property(TARGET libpq::libpq APPEND PROPERTY INTERFACE_LINK_LIBRARIES "-lgssapi_krb5" "-lkrb5" "-lk5crypto" "-lcom_err")
+endif()
+
 
 add_executable(${PROJECT_NAME} 
     src/main.cpp
@@ -62,7 +67,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     argon2::argon2
     gh_update_checker::gh_update_checker
     CURL::libcurl
-    gssapi_krb5
 )
 
 # libs.txt Generate (timing-safe via GENERATE)
@@ -73,5 +77,5 @@ file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_libs.txt"
 enable_testing()
 add_executable(test_auth tests/test_auth.cpp src/config_util.cpp src/auth_srv.cpp)
 target_include_directories(test_auth PRIVATE include)
-target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto argon2::argon2 Drogon::Drogon gssapi_krb5)
+target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto argon2::argon2 Drogon::Drogon)
 add_test(NAME test_auth COMMAND test_auth)
