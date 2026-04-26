@@ -33,7 +33,13 @@ int main(int argc, char* argv[]) {
     drogon_auth::ConfigUtil::load_env(env_path);
     int port = drogon_auth::ConfigUtil::get_int("SERVER_PORT", 8848);
 
+    std::string drogon_config = drogon_auth::ConfigUtil::get_string("DROGON_CONFIG_FILE", "");
+    if(!drogon_config.empty()) {
+        drogon::app().loadConfigFile(drogon_config);
+    }
+
     std::println("Starting Drogon Auth Microservice on port {}", port);
+    LOG_INFO << "Starting Drogon Auth Microservice on port " << port;
 
     // EXTEND: Initialize DB client (PostgreSQL/SQLite) based on DB_TYPE
     std::string db_type = drogon_auth::ConfigUtil::get_string("DB_TYPE", "postgres");

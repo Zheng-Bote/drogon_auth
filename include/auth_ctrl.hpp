@@ -7,8 +7,8 @@
  *
  * @file auth_ctrl.hpp
  * @brief Authentication Controller
- * @version 0.1.0
- * @date 2026-04-24
+ * @version 0.2.0
+ * @date 2026-04-26
  *
  * @author ZHENG Robert (robert@hase-zheng.net)
  * @copyright Copyright (c) 2026 ZHENG Robert
@@ -29,15 +29,15 @@ namespace drogon_auth {
 class AuthCtrl : public drogon::HttpController<AuthCtrl> {
 public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(AuthCtrl::register_user, "/api/v1/register", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::login, "/api/v1/login", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::logout, "/api/v1/logout", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::me, "/api/v1/me", drogon::Get);
-    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/v1/totp/setup", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/v1/totp/verify", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::change_password, "/api/v1/password/change", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/v1/password/reset-request", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/v1/password/reset-confirm", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::register_user, "/api/api/auth/v1/register", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::login, "/api/auth/v1/login", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get);
+    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/auth/v1/password/reset-request", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/auth/v1/password/reset-confirm", drogon::Post);
     METHOD_LIST_END
 
     drogon::Task<drogon::HttpResponsePtr> register_user(drogon::HttpRequestPtr req);

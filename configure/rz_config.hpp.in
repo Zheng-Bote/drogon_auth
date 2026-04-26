@@ -34,7 +34,11 @@ constexpr std::int32_t PROJECT_VERSION_PATCH { @PROJECT_VERSION_PATCH@ };
 
 constexpr std::string_view PROJECT_HOMEPAGE_URL = "@PROJECT_HOMEPAGE_URL@";
 constexpr std::string_view AUTHOR = "${PROG_AUTHOR}";
+
 constexpr std::string_view CREATED_YEAR = "${PROG_CREATED}";
+constexpr std::string_view COPYRIGHT = "${PROG_COPYRIGHT}";
+constexpr std::string_view LICENSE = "${PROG_LICENSE}";
+
 constexpr std::string_view ORGANIZATION = "${PROG_ORGANIZATION_NAME}";
 constexpr std::string_view PROJECT_DOMAIN = "${PROG_ORGANIZATION_DOMAIN}";
 

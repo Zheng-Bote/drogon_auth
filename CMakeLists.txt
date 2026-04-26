@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 
 project(drogon_auth
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
@@ -14,8 +14,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- Configure (für rz_config.hpp) ---
 set(EXECUTABLE_NAME "${PROJECT_NAME}")
-set(PROG_LONGNAME "Native C++ Dependency Scanner & SBOM Generator")
+set(PROG_LONGNAME "Drogon Authentication Microservice")
 set(PROG_CREATED "2026")
+set(PROG_COPYRIGHT "ZHENG Robert")
+set(PROG_LICENSE "Apache-2.0") 
 set(PROG_AUTHOR "ZHENG Bote")
 set(PROG_ORGANIZATION_NAME "ZHENG Robert")
 set(PROG_ORGANIZATION_DOMAIN "net.hase-zheng")
@@ -30,7 +32,7 @@ include(FetchContent)
 FetchContent_Declare(
   gh_update_checker
   GIT_REPOSITORY https://github.com/Zheng-Bote/gh-update-checker.git
-  GIT_TAG        v1.0.8
+  GIT_TAG        v1.0.9
 )
 
 FetchContent_MakeAvailable(gh_update_checker)

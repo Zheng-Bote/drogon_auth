@@ -7,8 +7,8 @@
  *
  * @file auth_srv.hpp
  * @brief Authentication Service
- * @version 0.1.0
- * @date 2026-04-24
+ * @version 0.2.0
+ * @date 2026-04-26
  *
  * @author ZHENG Robert (robert@hase-zheng.net)
  * @copyright Copyright (c) 2026 ZHENG Robert
@@ -18,6 +18,8 @@
 
 #include <string>
 #include <expected>
+#include <cstdint>
+#include <vector>
 
 namespace drogon_auth {
 
@@ -72,6 +74,16 @@ public:
      * @return Base32 encoded secret.
      */
     [[nodiscard]] static std::string generate_totp_secret();
+
+private:
+    // IMPORTANT: These private helpers must remain declared here
+    static std::vector<uint8_t> base32Decode(const std::string &secret);
+    /**
+     * @brief Function implementation.
+     */
+    static int64_t getCurrentTimeStep();
+    static std::string generateCodeForStep(const std::vector<uint8_t> &keyBytes,
+        int64_t timeStep);
 };
 
 } // namespace drogon_auth

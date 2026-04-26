@@ -14,7 +14,7 @@ The code separates concerns into `controllers`, `services`, and `utilities`.
 - **Services** (`auth_srv`): Handle core business logic like cryptography and session management.
 - **Config** (`config_util`): Environment variable and `.env` parsing.
 
-> **EXTEND**: You can easily implement RBAC controllers (`/api/v1/admin/*`) by adding an `admin_ctrl` that relies on role tables defined in the migrations.
+> **EXTEND**: You can easily implement RBAC controllers (`/api/auth/v1/admin/*`) by adding an `admin_ctrl` that relies on role tables defined in the migrations.
 
 ## Setup & Build
 
@@ -63,25 +63,25 @@ Modify `.env` to set secure values:
 - **Audit Logging**: Write to `audit_logs` table for every login attempt.
 - **Secret Rotation**: Rotate `JWT_SECRET` periodically; invalidates existing JWT tokens.
 
-## API Documentation
+## auth Documentation
 
 The following table describes the implemented endpoints:
 
 | Endpoint                         | Method | JSON Body Parameters                               | Description                                                                             |
 | -------------------------------- | ------ | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `/api/v1/register`               | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
-| `/api/v1/login`                  | `POST` | `loginname` OR `email` (str), `password` (str)     | Authenticates a user. Sets secure HttpOnly cookie and logs attempt.                     |
-| `/api/v1/logout`                 | `POST` | _None_                                             | Invalidates the active session and clears the cookie.                                   |
-| `/api/v1/me`                     | `GET`  | _None_                                             | Returns the current user's profile information.                                         |
-| `/api/v1/totp/setup`             | `POST` | _None_                                             | Generates a new TOTP secret for the user and returns the `otpauth://` URI.              |
-| `/api/v1/totp/verify`            | `POST` | `code` (str)                                       | Verifies a 6-digit TOTP code against the user's stored secret.                          |
-| `/api/v1/password/change`        | `POST` | `old_password` (str), `new_password` (str)         | Allows an authenticated user to change their password.                                  |
-| `/api/v1/password/reset-request` | `POST` | `email` (str)                                      | Generates a password reset token for the specified email.                               |
-| `/api/v1/password/reset-confirm` | `POST` | `token` (str), `new_password` (str)                | Resets the password using a valid reset token.                                          |
-| `/api/system/getVersion`         | `GET`  | _None_                                             | Returns the current version of the microservice.                                        |
-| `/api/system/health-check`       | `GET`  | _None_                                             | Checks Drogon server status and Database connection.                                    |
-| `/api/system/check-update`       | `GET`  | _None_                                             | Checks GitHub for a newer version of the microservice.                                  |
-| `/api/system/sys-info`           | `GET`  | _None_                                             | Returns detailed project metadata and compiler information.                             |
+| `/api/api/auth/v1/register`               | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
+| `/api/auth/v1/login`                  | `POST` | `loginname` OR `email` (str), `password` (str)     | Authenticates a user. Sets secure HttpOnly cookie and logs attempt.                     |
+| `/api/auth/v1/logout`                 | `POST` | _None_                                             | Invalidates the active session and clears the cookie.                                   |
+| `/api/auth/v1/me`                     | `GET`  | _None_                                             | Returns the current user's profile information.                                         |
+| `/api/auth/v1/totp/setup`             | `POST` | _None_                                             | Generates a new TOTP secret for the user and returns the `otpauth://` URI.              |
+| `/api/auth/v1/totp/verify`            | `POST` | `code` (str)                                       | Verifies a 6-digit TOTP code against the user's stored secret.                          |
+| `/api/auth/v1/password/change`        | `POST` | `old_password` (str), `new_password` (str)         | Allows an authenticated user to change their password.                                  |
+| `/api/auth/v1/password/reset-request` | `POST` | `email` (str)                                      | Generates a password reset token for the specified email.                               |
+| `/api/auth/v1/password/reset-confirm` | `POST` | `token` (str), `new_password` (str)                | Resets the password using a valid reset token.                                          |
+| `/api/auth/system/getVersion`         | `GET`  | _None_                                             | Returns the current version of the microservice.                                        |
+| `/api/auth/system/health-check`       | `GET`  | _None_                                             | Checks Drogon server status and Database connection.                                    |
+| `/api/auth/system/check-update`       | `GET`  | _None_                                             | Checks GitHub for a newer version of the microservice.                                  |
+| `/api/auth/system/sys-info`           | `GET`  | _None_                                             | Returns detailed project metadata and compiler information.                             |
 
 ## Architecture
 

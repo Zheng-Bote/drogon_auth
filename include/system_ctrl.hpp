@@ -4,6 +4,15 @@
  * SPDX-FileContributor: ZHENG Robert
  * SPDX-FileCopyrightText: 2026 ZHENG Robert
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * @file system_ctrl.hpp
+ * @brief System Utility
+ * @version 0.2.0
+ * @date 2026-04-26
+ *
+ * @author ZHENG Robert (robert@hase-zheng.net)
+ * @copyright Copyright (c) 2026 ZHENG Robert
+ * @license Apache-2.0
  */
 #pragma once
 
@@ -19,10 +28,10 @@ namespace drogon_auth {
 class SystemCtrl : public drogon::HttpController<SystemCtrl> {
 public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(SystemCtrl::getVersion, "/api/system/getVersion", drogon::Get);
-    ADD_METHOD_TO(SystemCtrl::healthCheck, "/api/system/health-check", drogon::Get);
-    ADD_METHOD_TO(SystemCtrl::checkUpdate, "/api/system/check-update", drogon::Get);
-    ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/system/sys-info", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::getVersion, "/api/api/auth/system/getVersion", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::healthCheck, "/api/auth/system/health-check", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::checkUpdate, "/api/auth/system/check-update", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/auth/system/sys-info", drogon::Get);
     METHOD_LIST_END
 
     drogon::Task<drogon::HttpResponsePtr> getVersion(drogon::HttpRequestPtr req);

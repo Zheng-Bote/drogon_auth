@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Drogon Auth</title>
+
+    <meta name="description" content=">Drogon Auth Microservice is a high-performance C++23 based authentication microservice using the
+    Drogon web framework." />
+    <meta name="author" content="ZHENG Robert:ZHENG Bote:郑 伯特" />
+
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" type="image/svg+xml" href="/img/drogon/logo.svg" />
+
+    <style>
+        img {
+            max-width: 200px;
+            border-radius: 5px;
+        }
+        .center {
+            text-align: center;
+        }
+        table,th,tr,td {
+            border-collapse: collapse;
+            border: 1px solid;
+        }
+        th {
+            background-color: lightgray;
+            font-weight: bolder;
+        }
+
+        .sourceCode {
+            padding: 0 2px 0 2px;
+            background-color: black;
+            color: lightgreen;
+
+            & .co {
+                color: lightgray;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1 id="drogon-auth-microservice">Drogon Auth Microservice</h1>
+<p>A high-performance C++23 based authentication microservice using the
+Drogon web framework.</p>
+
+<div class="center">
+<img src="/img/drogon/logo.svg">
+</div>
+
+<h2 id="project-overview">Project Overview</h2>
+<p>This service provides a complete authentication solution including
+Argon2id password hashing, JWT/Session tokens, and TOTP for 2FA. It uses
+PostgreSQL (or SQLite3 fallback) for data persistence. It is designed to
+be fully modular and extensible for features like RBAC.</p>
+<h2 id="architecture-extensibility">Architecture &amp;
+Extensibility</h2>
+<p>The code separates concerns into <code>controllers</code>,
+<code>services</code>, and <code>utilities</code>.</p>
+<ul>
+<li><strong>Controllers</strong> (<code>auth_ctrl</code>): Handle HTTP
+layer and request mapping.</li>
+<li><strong>Services</strong> (<code>auth_srv</code>): Handle core
+business logic like cryptography and session management.</li>
+<li><strong>Config</strong> (<code>config_util</code>): Environment
+variable and <code>.env</code> parsing.</li>
+</ul>
+<blockquote>
+<p><strong>EXTEND</strong>: You can easily implement RBAC controllers
+(<code>/api/auth/v1/admin/*</code>) by adding an <code>admin_ctrl</code>
+that relies on role tables defined in the migrations.</p>
+</blockquote>
+<h2 id="setup-build">Setup &amp; Build</h2>
+Sourcecode: <a href="https://github.com/Zheng-Bote/drogon_auth" alt="GitHub Sourcecode" title="https://github.com/Zheng-Bote/drogon_auth">GitHub drogon_auth</a>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>C++23 Compiler (GCC/Clang)</li>
+<li>CMake &gt;= 3.31</li>
+<li>Conan v2</li>
+</ul>
+<h3 id="steps">Steps</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Install Dependencies</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">conan</span> install . <span class="at">--build</span><span class="op">=</span>missing <span class="at">-s</span> build_type=Release</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Configure CMake</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cmake</span> <span class="at">--preset</span> conan-release</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Build</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cmake</span> <span class="at">--build</span> <span class="at">--preset</span> conan-release</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Run Tests</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="ex">ctest</span> <span class="at">--preset</span> conan-release</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Run the Server</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">./build/Release/drogon_auth</span> .env</span></code></pre></div>
+<h2 id="security-configuration">Security &amp; Configuration</h2>
+<h3 id="secrets">Secrets</h3>
+<p>Modify <code>.env</code> to set secure values:</p>
+<ul>
+<li><code>DB_PASSWORD</code>: Set to a strong database password.</li>
+<li><code>JWT_SECRET</code>: Generate a random string using
+<code>openssl rand -hex 32</code>.</li>
+</ul>
+<h3 id="security-checklist">Security Checklist</h3>
+<ul>
+<li><strong>Argon2 Parameter</strong>: Configured in <code>.env</code>
+(memory, iterations, parallelism).</li>
+<li><strong>HTTPS</strong>: Use a reverse proxy (e.g. Nginx) to
+terminate TLS.</li>
+<li><strong>Cookie Flags</strong>: Use <code>HttpOnly</code>,
+<code>Secure</code>, and <code>SameSite=Strict</code> for session
+cookies (EXTEND inside auth_ctrl).</li>
+<li><strong>DB-User Rights</strong>: Ensure the DB user has minimum
+required privileges.</li>
+<li><strong>Rate-Limiting</strong>: Implement drogons
+<code>RateLimiter</code> filters.</li>
+<li><strong>Brute-Force Protection</strong>: Lock out accounts after 5
+failed login attempts (EXTEND in auth_srv).</li>
+<li><strong>Audit Logging</strong>: Write to <code>audit_logs</code>
+table for every login attempt.</li>
+<li><strong>Secret Rotation</strong>: Rotate <code>JWT_SECRET</code>
+periodically; invalidates existing JWT tokens.</li>
+</ul>
+<h2 id="auth-documentation">auth Documentation</h2>
+<p>The following table describes the implemented endpoints:</p>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 3%" />
+<col style="width: 28%" />
+<col style="width: 49%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Endpoint</th>
+<th>Method</th>
+<th>JSON Body Parameters</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>/api/api/auth/v1/register</code></td>
+<td><code>POST</code></td>
+<td><code>loginname</code> (str), <code>email</code> (str),
+<code>password</code> (str)</td>
+<td>Registers a new user. Creates entries in users, user_profiles, and
+user_communications.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/v1/login</code></td>
+<td><code>POST</code></td>
+<td><code>loginname</code> OR <code>email</code> (str),
+<code>password</code> (str)</td>
+<td>Authenticates a user. Sets secure HttpOnly cookie and logs
+attempt.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/v1/logout</code></td>
+<td><code>POST</code></td>
+<td><em>None</em></td>
+<td>Invalidates the active session and clears the cookie.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/v1/me</code></td>
+<td><code>GET</code></td>
+<td><em>None</em></td>
+<td>Returns the current user’s profile information.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/v1/totp/setup</code></td>
+<td><code>POST</code></td>
+<td><em>None</em></td>
+<td>Generates a new TOTP secret for the user and returns the
+<code>otpauth://</code> URI.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/v1/totp/verify</code></td>
+<td><code>POST</code></td>
+<td><code>code</code> (str)</td>
+<td>Verifies a 6-digit TOTP code against the user’s stored secret.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/v1/password/change</code></td>
+<td><code>POST</code></td>
+<td><code>old_password</code> (str), <code>new_password</code>
+(str)</td>
+<td>Allows an authenticated user to change their password.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/v1/password/reset-request</code></td>
+<td><code>POST</code></td>
+<td><code>email</code> (str)</td>
+<td>Generates a password reset token for the specified email.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/v1/password/reset-confirm</code></td>
+<td><code>POST</code></td>
+<td><code>token</code> (str), <code>new_password</code> (str)</td>
+<td>Resets the password using a valid reset token.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/system/getVersion</code></td>
+<td><code>GET</code></td>
+<td><em>None</em></td>
+<td>Returns the current version of the microservice.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/system/health-check</code></td>
+<td><code>GET</code></td>
+<td><em>None</em></td>
+<td>Checks Drogon server status and Database connection.</td>
+</tr>
+<tr class="even">
+<td><code>/api/auth/system/check-update</code></td>
+<td><code>GET</code></td>
+<td><em>None</em></td>
+<td>Checks GitHub for a newer version of the microservice.</td>
+</tr>
+<tr class="odd">
+<td><code>/api/auth/system/sys-info</code></td>
+<td><code>GET</code></td>
+<td><em>None</em></td>
+<td>Returns detailed project metadata and compiler information.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="architecture">Architecture</h2>
+<p>For a detailed architectural overview using C4 Model, please view the
+<a href="docs/architecture/component_diagram.md">Component
+Diagram</a>.</p>
+
+</body>
+</html>
