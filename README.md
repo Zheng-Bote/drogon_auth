@@ -69,7 +69,7 @@ The following table describes the implemented endpoints:
 
 | Endpoint                         | Method | JSON Body Parameters                               | Description                                                                             |
 | -------------------------------- | ------ | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `/api/api/auth/v1/register`               | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
+| `/api/auth/v1/register`               | `POST` | `loginname` (str), `email` (str), `password` (str) | Registers a new user. Creates entries in users, user_profiles, and user_communications. |
 | `/api/auth/v1/login`                  | `POST` | `loginname` OR `email` (str), `password` (str)     | Authenticates a user. Sets secure HttpOnly cookie and logs attempt.                     |
 | `/api/auth/v1/logout`                 | `POST` | _None_                                             | Invalidates the active session and clears the cookie.                                   |
 | `/api/auth/v1/me`                     | `GET`  | _None_                                             | Returns the current user's profile information.                                         |
