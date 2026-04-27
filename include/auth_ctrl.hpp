@@ -17,25 +17,21 @@
 #pragma once
 
 #include <drogon/HttpController.h>
-
 #include <drogon/utils/coroutine.h>
+#include "login_filter.hpp"
 
 namespace drogon_auth {
 
-/**
- * @class AuthCtrl
- * @brief HTTP Controller for Authentication endpoints.
- */
 class AuthCtrl : public drogon::HttpController<AuthCtrl> {
 public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(AuthCtrl::register_user, "/api/api/auth/v1/register", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::register_user, "/api/auth/v1/register", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::login, "/api/auth/v1/login", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get);
-    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post);
+    ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post, "LoginFilter");
+    ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get, "LoginFilter");
+    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post, "LoginFilter");
+    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post, "LoginFilter");
+    ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post, "LoginFilter");
     ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/auth/v1/password/reset-request", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/auth/v1/password/reset-confirm", drogon::Post);
     METHOD_LIST_END

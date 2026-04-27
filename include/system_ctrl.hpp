@@ -18,6 +18,7 @@
 
 #include <drogon/HttpController.h>
 #include <drogon/utils/coroutine.h>
+#include "login_filter.hpp"
 
 namespace drogon_auth {
 
@@ -28,7 +29,7 @@ namespace drogon_auth {
 class SystemCtrl : public drogon::HttpController<SystemCtrl> {
 public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(SystemCtrl::getVersion, "/api/api/auth/system/getVersion", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::getVersion, "/api/auth/system/getVersion", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::healthCheck, "/api/auth/system/health-check", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::checkUpdate, "/api/auth/system/check-update", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/auth/system/sys-info", drogon::Get);

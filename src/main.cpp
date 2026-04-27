@@ -19,6 +19,8 @@
 #include <format>
 #include "utils/config_utils.hpp"
 
+#include <trantor/utils/Logger.h>
+
 int main(int argc, char* argv[]) {
     std::string env_path = ".env";
     if (argc > 1) {
@@ -36,6 +38,7 @@ int main(int argc, char* argv[]) {
     std::string drogon_config = drogon_auth::utils::ConfigUtil::get_string("DROGON_CONFIG_FILE", "");
     if(!drogon_config.empty()) {
         drogon::app().loadConfigFile(drogon_config);
+        std::println("Loaded Drogon config from file: {}", drogon_config);
     }
 
     std::println("Starting Drogon Auth Microservice on port {}", port);
@@ -51,7 +54,7 @@ int main(int argc, char* argv[]) {
     
     if (db_type == "postgres") {
         drogon::app().createDbClient("postgresql", db_host, db_port, db_name, db_user, db_password, 1, "", "default");
-        std::println("Initialized PostgreSQL client");
+        LOG_INFO << "Initialized PostgreSQL client";
     } else if (db_type == "sqlite3") {
         std::string sqlite_file = drogon_auth::ConfigUtil::get_string("SQLITE_FILE", "gallery.sqlite3");
         drogon::app().createDbClient("sqlite3", "", 0, "", "", "", 1, sqlite_file, "default");
@@ -59,7 +62,7 @@ int main(int argc, char* argv[]) {
     } else {
         std::println(stderr, "Unsupported DB_TYPE: {}", db_type);
     }
-    
+
     drogon::app().addListener("0.0.0.0", port);
     drogon::app().run();
 

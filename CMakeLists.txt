@@ -56,6 +56,7 @@ add_executable(${PROJECT_NAME}
     src/auth_srv.cpp
     src/auth_ctrl.cpp
     src/system_ctrl.cpp
+    src/login_filter.cpp
     src/utils/config_utils.cpp
     src/utils/totp_utils.cpp
     src/utils/password_utils.cpp
