@@ -51,12 +51,14 @@ if(TARGET libpq::libpq)
 endif()
 
 
-add_executable(${PROJECT_NAME} 
+add_executable(${PROJECT_NAME}
     src/main.cpp
-    src/config_util.cpp
     src/auth_srv.cpp
     src/auth_ctrl.cpp
     src/system_ctrl.cpp
+    src/utils/config_utils.cpp
+    src/utils/totp_utils.cpp
+    src/utils/password_utils.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
@@ -77,7 +79,7 @@ file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_libs.txt"
 
 # Tests
 enable_testing()
-add_executable(test_auth tests/test_auth.cpp src/config_util.cpp src/auth_srv.cpp)
+add_executable(test_auth tests/test_auth.cpp src/utils/config_utils.cpp src/utils/password_utils.cpp src/utils/totp_utils.cpp src/auth_srv.cpp)
 target_include_directories(test_auth PRIVATE include)
 target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto argon2::argon2 Drogon::Drogon)
 add_test(NAME test_auth COMMAND test_auth)

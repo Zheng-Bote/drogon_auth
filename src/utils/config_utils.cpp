@@ -14,7 +14,7 @@
  * @copyright Copyright (c) 2026 ZHENG Robert
  * @license Apache-2.0
  */
-#include "config_util.hpp"
+#include "utils/config_utils.hpp"
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
@@ -22,6 +22,7 @@
 #include <print>
 
 namespace drogon_auth {
+    namespace utils {
 
 static std::unordered_map<std::string, std::string> g_env_vars;
 
@@ -64,4 +65,5 @@ int ConfigUtil::get_int(const std::string& key, int default_val) {
     }
 }
 
+    } // namespace utils
 } // namespace drogon_auth

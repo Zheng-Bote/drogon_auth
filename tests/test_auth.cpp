@@ -31,12 +31,12 @@ TEST_CASE("Password Hashing", "[auth]") {
 
 TEST_CASE("TOTP Secret Generation", "[auth]") {
     std::string secret = drogon_auth::AuthSrv::generate_totp_secret();
-    REQUIRE(secret.length() == 16);
+    REQUIRE(secret.length() == 32);
 }
 
 TEST_CASE("Session Token Generation", "[auth]") {
     std::string token1 = drogon_auth::AuthSrv::generate_session_token();
     std::string token2 = drogon_auth::AuthSrv::generate_session_token();
     REQUIRE(token1 != token2);
-    REQUIRE(token1.length() == 16);
+    REQUIRE(token1.length() == 32);
 }

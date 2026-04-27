@@ -17,7 +17,7 @@
 #include <drogon/drogon.h>
 #include <print>
 #include <format>
-#include "config_util.hpp"
+#include "utils/config_utils.hpp"
 
 int main(int argc, char* argv[]) {
     std::string env_path = ".env";
@@ -25,15 +25,15 @@ int main(int argc, char* argv[]) {
         env_path = argv[1];
     }
     
-    const std::string explicit_dotenv = drogon_auth::ConfigUtil::get_string("DOTENV_PATH");
+    const std::string explicit_dotenv = drogon_auth::utils::ConfigUtil::get_string("DOTENV_PATH");
     if (!explicit_dotenv.empty()) {
         env_path = explicit_dotenv;
     }
 
-    drogon_auth::ConfigUtil::load_env(env_path);
-    int port = drogon_auth::ConfigUtil::get_int("SERVER_PORT", 8848);
+    drogon_auth::utils::ConfigUtil::load_env(env_path);
+    int port = drogon_auth::utils::ConfigUtil::get_int("SERVER_PORT", 8848);
 
-    std::string drogon_config = drogon_auth::ConfigUtil::get_string("DROGON_CONFIG_FILE", "");
+    std::string drogon_config = drogon_auth::utils::ConfigUtil::get_string("DROGON_CONFIG_FILE", "");
     if(!drogon_config.empty()) {
         drogon::app().loadConfigFile(drogon_config);
     }
@@ -42,12 +42,12 @@ int main(int argc, char* argv[]) {
     LOG_INFO << "Starting Drogon Auth Microservice on port " << port;
 
     // EXTEND: Initialize DB client (PostgreSQL/SQLite) based on DB_TYPE
-    std::string db_type = drogon_auth::ConfigUtil::get_string("DB_TYPE", "postgres");
-    std::string db_host = drogon_auth::ConfigUtil::get_string("DB_HOST", "127.0.0.1");
-    int db_port = drogon_auth::ConfigUtil::get_int("DB_PORT", 5432);
-    std::string db_name = drogon_auth::ConfigUtil::get_string("DB_NAME", "postgres");
-    std::string db_user = drogon_auth::ConfigUtil::get_string("DB_USER", "postgres");
-    std::string db_password = drogon_auth::ConfigUtil::get_string("DB_PASSWORD", "");
+    std::string db_type = drogon_auth::utils::ConfigUtil::get_string("DB_TYPE", "postgres");
+    std::string db_host = drogon_auth::utils::ConfigUtil::get_string("DB_HOST", "127.0.0.1");
+    int db_port = drogon_auth::utils::ConfigUtil::get_int("DB_PORT", 5432);
+    std::string db_name = drogon_auth::utils::ConfigUtil::get_string("DB_NAME", "postgres");
+    std::string db_user = drogon_auth::utils::ConfigUtil::get_string("DB_USER", "postgres");
+    std::string db_password = drogon_auth::utils::ConfigUtil::get_string("DB_PASSWORD", "");
     
     if (db_type == "postgres") {
         drogon::app().createDbClient("postgresql", db_host, db_port, db_name, db_user, db_password, 1, "", "default");
