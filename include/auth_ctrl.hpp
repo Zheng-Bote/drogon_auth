@@ -18,7 +18,7 @@
 
 #include <drogon/HttpController.h>
 #include <drogon/utils/coroutine.h>
-#include "login_filter.hpp"
+#include "auth_middleware.hpp"
 
 namespace drogon_auth {
 
@@ -27,11 +27,11 @@ public:
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(AuthCtrl::register_user, "/api/auth/v1/register", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::login, "/api/auth/v1/login", drogon::Post);
-    ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post, "LoginFilter");
-    ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get, "LoginFilter");
-    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post, "LoginFilter");
-    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post, "LoginFilter");
-    ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post, "LoginFilter");
+    ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/auth/v1/password/reset-request", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/auth/v1/password/reset-confirm", drogon::Post);
     METHOD_LIST_END

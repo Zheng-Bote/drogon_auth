@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.31)
 
+# conan install . --output-folder=build --build=missing -s build_type=Debug
+# cmake --preset conan-debug
+# cmake --build --preset conan-debug --parallel $(nproc)
+
 project(drogon_auth
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
@@ -56,10 +60,11 @@ add_executable(${PROJECT_NAME}
     src/auth_srv.cpp
     src/auth_ctrl.cpp
     src/system_ctrl.cpp
-    src/login_filter.cpp
+    src/auth_middleware.cpp
     src/utils/config_utils.cpp
     src/utils/totp_utils.cpp
     src/utils/password_utils.cpp
+    src/utils/seeder_utils.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)

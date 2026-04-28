@@ -5,6 +5,27 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Database: drogon_auth
+
+-- DROP DATABASE IF EXISTS drogon_auth;
+
+CREATE DATABASE drogon_auth
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'en_US.utf8'
+    LC_CTYPE = 'en_US.utf8'
+    LOCALE_PROVIDER = 'libc'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1
+    IS_TEMPLATE = False;
+
+GRANT TEMPORARY, CONNECT ON DATABASE drogon_auth TO PUBLIC;
+
+GRANT TEMPORARY ON DATABASE drogon_auth TO drogon_auth_user;
+
+GRANT ALL ON DATABASE drogon_auth TO postgres;
+
 -- ------------------------------------------------------------------
 -- Users table (auth core) - abgeglichen mit deinem Referenzschema
 -- ------------------------------------------------------------------
@@ -21,6 +42,18 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_loginname ON users(loginname);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id);
 
 -- ------------------------------------------------------------------
 -- Profiles: personal data separate from auth

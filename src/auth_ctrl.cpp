@@ -116,12 +116,12 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
         ret["status"] = "success";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         
-        drogon::Cookie cookie("DROGON_AUTH_JSESSIONID", token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // false für localhost, true für prod
-        cookie.setSameSite(drogon::Cookie::SameSite::kStrict);
-        cookie.setPath("/");
-        resp->addCookie(cookie);
+        // Set session flags for AuthMiddleware
+        auto session = req->session();
+        if (session) {
+            session->insert("authenticated", true);
+            session->insert("user_id", user_id);
+        }
 
         co_return resp;
 
@@ -134,7 +134,14 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr req) {
-    auto session_cookie = req->getCookie("DROGON_AUTH_JSESSIONID");
+    // Clear session flags
+    auto session = req->session();
+    if (session) {
+        session->erase("authenticated");
+        session->erase("user_id");
+    }
+
+    auto session_cookie = req->getCookie("JSESSIONID");
     if (!session_cookie.empty()) {
         auto db = drogon::app().getDbClient();
         try {
@@ -148,7 +155,7 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr re
     ret["status"] = "success";
     auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
     
-    drogon::Cookie cookie("DROGON_AUTH_JSESSIONID", "");
+    drogon::Cookie cookie("JSESSIONID", "");
     cookie.setExpiresDate(trantor::Date::date().after(-3600)); // expire immediately
     cookie.setPath("/");
     resp->addCookie(cookie);

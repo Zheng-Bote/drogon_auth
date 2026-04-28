@@ -15,6 +15,23 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_loginname ON users(loginname);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
+-- migrations/002_sqlite_password_reset.sql
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id);
+
+
 CREATE TABLE IF NOT EXISTS user_profiles (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

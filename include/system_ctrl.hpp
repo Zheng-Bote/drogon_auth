@@ -18,7 +18,7 @@
 
 #include <drogon/HttpController.h>
 #include <drogon/utils/coroutine.h>
-#include "login_filter.hpp"
+#include "auth_middleware.hpp"
 
 namespace drogon_auth {
 
@@ -32,7 +32,7 @@ public:
     ADD_METHOD_TO(SystemCtrl::getVersion, "/api/auth/system/getVersion", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::healthCheck, "/api/auth/system/health-check", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::checkUpdate, "/api/auth/system/check-update", drogon::Get);
-    ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/auth/system/sys-info", drogon::Get);
+    ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/auth/system/sys-info", drogon::Get, "drogon_auth::middleware::AuthMiddleware");
     METHOD_LIST_END
 
     drogon::Task<drogon::HttpResponsePtr> getVersion(drogon::HttpRequestPtr req);
