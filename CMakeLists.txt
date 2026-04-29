@@ -39,7 +39,13 @@ FetchContent_Declare(
   GIT_TAG        v1.0.9
 )
 
-FetchContent_MakeAvailable(gh_update_checker)
+FetchContent_Declare(
+  drogon_audit_plugin
+  GIT_REPOSITORY https://github.com/Zheng-Bote/drogon_audit_plugin.git
+  GIT_TAG        main
+)
+
+FetchContent_MakeAvailable(gh_update_checker drogon_audit_plugin)
 
 # Find Conan dependencies
 find_package(Drogon REQUIRED)
@@ -76,6 +82,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenSSL::Crypto
     libsodium::libsodium
     gh_update_checker::gh_update_checker
+    drogon_audit_plugin::drogon_audit_plugin
     CURL::libcurl
 )
 

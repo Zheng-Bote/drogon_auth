@@ -5,6 +5,7 @@ A high-performance C++23 Authentication Microservice built on the [Drogon Framew
 ## Features
 - **Modern C++**: Built with C++23 standards and C++20 Coroutines.
 - **Secure Authentication**: Argon2id password hashing and session-based auth.
+- **Audit Logging**: Asynchronous database-backed action logging via `AuditLogPlugin`.
 - **Two-Factor Authentication**: TOTP support (Google/Microsoft Authenticator).
 - **Role-Based Access Control**: Managed via database roles.
 - **Multi-DB Support**: PostgreSQL (Production) and SQLite3 (Development).
@@ -18,8 +19,10 @@ The service follows a modular layered architecture:
 graph TD
     Client[HTTP Client] --> Middleware[AuthMiddleware]
     Middleware --> Controllers[Auth / System Controllers]
+    Controllers --> Plugins[AuditLogPlugin]
+    Plugins --> DB[(PostgreSQL / SQLite)]
     Controllers --> Services[AuthSrv / Seeder]
-    Services --> DB[(PostgreSQL / SQLite)]
+    Services --> DB
 ```
 
 For more details, see:

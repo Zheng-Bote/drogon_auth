@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - 2026-04-29
+### Added
+- Integrated `AuditLogPlugin` via `FetchContent` for asynchronous database-backed action logging.
+- Added audit logging for login (success/failure), logout, and password reset confirmation.
+
 ### Changed
 - Switched Argon2id implementation from `argon2` C library to `libsodium` (libsodium/1.0.21).
 - Refactored `PasswordUtils` to use `crypto_pwhash_str` and `crypto_pwhash_str_verify` from libsodium.

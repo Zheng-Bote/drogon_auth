@@ -8,6 +8,7 @@
 #include "auth_ctrl.hpp"
 #include "auth_srv.hpp"
 #include <drogon/utils/Utilities.h>
+#include <drogon/plugins/AuditLogPlugin.hpp>
 #include <print>
 
 namespace drogon_auth {
@@ -90,9 +91,16 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
         std::string user_id = res[0]["id"].as<std::string>();
         std::string hash = res[0]["password_hash"].as<std::string>();
 
+        auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+
         if (!AuthSrv::verify_password(password, hash)) {
             co_await db->execSqlCoro("INSERT INTO login_attempts (id, user_id, loginname, ip_address, success) VALUES ($1, $2, $3, $4, $5)",
                 drogon::utils::getUuid(), user_id, ident, ip_address, 0);
+            
+            if (audit) {
+                audit->log(user_id, "login_failure", ip_address, Json::Value());
+            }
+
             auto resp = drogon::HttpResponse::newHttpResponse();
             resp->setStatusCode(drogon::k401Unauthorized);
             co_return resp;
@@ -101,8 +109,10 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
         // Success
         co_await db->execSqlCoro("INSERT INTO login_attempts (id, user_id, loginname, ip_address, success) VALUES ($1, $2, $3, $4, $5)",
             drogon::utils::getUuid(), user_id, ident, ip_address, 1);
-        co_await db->execSqlCoro("INSERT INTO audit_logs (id, user_id, action, ip_address) VALUES ($1, $2, $3, $4)",
-            drogon::utils::getUuid(), user_id, "login", ip_address);
+        
+        if (audit) {
+            audit->log(user_id, "login_success", ip_address, Json::Value());
+        }
 
         std::string token = AuthSrv::generate_session_token();
         // Set expiry to 24h
@@ -134,9 +144,15 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr req) {
+    auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+    std::string ip_address = req->peerAddr().toIp();
+
     // Clear session flags
     auto session = req->session();
     if (session) {
+        if (audit && session->find("user_id")) {
+            audit->log(session->get<std::string>("user_id"), "logout", ip_address, Json::Value());
+        }
         session->erase("authenticated");
         session->erase("user_id");
     }
@@ -420,6 +436,13 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::reset_password_confirm(drogon::H
         co_await trans->execSqlCoro("UPDATE users SET password_hash = $1 WHERE id = $2", new_hash.value(), user_id);
         co_await trans->execSqlCoro("UPDATE password_resets SET used = 1 WHERE token = $1", token);
         
+        auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+        if (audit) {
+            Json::Value details;
+            details["method"] = "reset_token";
+            audit->log(user_id, "password_reset_confirm", req->peerAddr().toIp(), details);
+        }
+
         Json::Value ret;
         ret["status"] = "success";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
