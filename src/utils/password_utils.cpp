@@ -17,41 +17,44 @@
  */
 
 #include "utils/password_utils.hpp"
-#include "argon2.h"
-#include <cstring>
+#include "utils/config_utils.hpp"
+#include <sodium.h>
 #include <random>
 #include <vector>
-
-const uint32_t T_COST = 3;
-const uint32_t M_COST = 65536;
-const uint32_t PARALLELISM = 4;
-const uint32_t SALT_LEN = 16;
-const uint32_t HASH_LEN = 32;
+#include <stdexcept>
 
 namespace drogon_auth {
 namespace utils {
 
 std::string PasswordUtils::hashPassword(const std::string &plainText) {
-  uint8_t salt[SALT_LEN];
-  std::random_device rd;
-  std::uniform_int_distribution<uint8_t> dist(0, 255);
-  for (uint32_t i = 0; i < SALT_LEN; ++i) {
-    salt[i] = dist(rd);
-  }
-
-  size_t encodedLen = argon2_encodedlen(T_COST, M_COST, PARALLELISM, SALT_LEN,
-                                        HASH_LEN, Argon2_id);
-  std::vector<char> encoded(encodedLen);
-
-  int result = argon2id_hash_encoded(
-      T_COST, M_COST, PARALLELISM, plainText.data(), plainText.size(), salt,
-      SALT_LEN, HASH_LEN, encoded.data(), encodedLen);
-
-  if (result != ARGON2_OK) {
+  if (sodium_init() < 0) {
     return "";
   }
 
-  return std::string(encoded.data());
+  // Map old Argon2 config to libsodium parameters
+  // crypto_pwhash_OPSLIMIT_INTERACTIVE is 2
+  // crypto_pwhash_MEMLIMIT_INTERACTIVE is 67108864 (64MB)
+  unsigned long long opslimit = static_cast<unsigned long long>(
+      ConfigUtil::get_int("ARGON2_ITERATIONS", crypto_pwhash_OPSLIMIT_INTERACTIVE));
+  
+  // ARGON2_MEMORY is usually in KB, libsodium expects bytes
+  int mem_kb = ConfigUtil::get_int("ARGON2_MEMORY", 0);
+  size_t memlimit;
+  if (mem_kb > 0) {
+      memlimit = static_cast<size_t>(mem_kb) * 1024;
+  } else {
+      memlimit = crypto_pwhash_MEMLIMIT_INTERACTIVE;
+  }
+
+  char hashed_password[crypto_pwhash_STRBYTES];
+
+  if (crypto_pwhash_str(
+          hashed_password, plainText.c_str(), plainText.length(),
+          opslimit, memlimit) != 0) {
+    return "";
+  }
+
+  return std::string(hashed_password);
 }
 
 bool PasswordUtils::verifyPassword(const std::string &plainText,
@@ -59,8 +62,12 @@ bool PasswordUtils::verifyPassword(const std::string &plainText,
   if (encodedHash.empty())
     return false;
 
-  int result = argon2id_verify(encodedHash.c_str(), plainText.data(), plainText.size());
-  return result == ARGON2_OK;
+  if (sodium_init() < 0) {
+    return false;
+  }
+
+  return crypto_pwhash_str_verify(encodedHash.c_str(), plainText.c_str(),
+                                  plainText.length()) == 0;
 }
 
 std::string PasswordUtils::generateRandomPassword(int length) {
@@ -72,7 +79,7 @@ std::string PasswordUtils::generateRandomPassword(int length) {
   std::uniform_int_distribution<size_t> distribution(0, max_index - 1);
 
   std::string password;
-  password.reserve(length);
+  password.reserve(static_cast<size_t>(length));
   for (int i = 0; i < length; ++i) {
     password += charset[distribution(generator)];
   }

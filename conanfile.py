@@ -3,7 +3,7 @@ from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout, CMakeDeps
 
 class DrogonAuthConan(ConanFile):
     name = "drogon_auth"
-    version = "0.3.0"
+    version = "0.4.0"
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
 
@@ -25,7 +25,7 @@ class DrogonAuthConan(ConanFile):
         self.requires("jwt-cpp/[>=0.7.2 <1]")
         self.requires("openssl/[>=3.6.2 <4]")
         self.requires("zlib/[>=1.3.1 <2]")
-        self.requires("argon2/20190702")
+        self.requires("libsodium/[>=1.0.21 <2]")
         self.requires("catch2/[>=3.14.0 <4]")
         self.requires("libcurl/[>=8.19.0 <9]")
 

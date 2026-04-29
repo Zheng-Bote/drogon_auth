@@ -28,7 +28,7 @@ This project uses the following third-party libraries:
 - jwt-cpp (MIT)
 - openssl (OpenSSL License)
 - zlib (zlib license)
-- argon2 (Apache 2.0)
+- libsodium (ISC)
 - libcurl (MIT)
 - libpq (PostgreSQL License)
 - lz4 (BSD 2-Clause)

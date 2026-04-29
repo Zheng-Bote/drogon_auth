@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.31)
 # cmake --build --preset conan-debug --parallel $(nproc)
 
 project(drogon_auth
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
@@ -46,7 +46,7 @@ find_package(Drogon REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Catch2 REQUIRED)
-find_package(argon2 REQUIRED)
+find_package(libsodium REQUIRED)
 find_package(CURL REQUIRED)
 
 # Force libpq to link against GSSAPI (because Conan built it with GSSAPI)
@@ -74,7 +74,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     jwt-cpp::jwt-cpp
     OpenSSL::SSL
     OpenSSL::Crypto
-    argon2::argon2
+    libsodium::libsodium
     gh_update_checker::gh_update_checker
     CURL::libcurl
 )
@@ -87,5 +87,5 @@ file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_libs.txt"
 enable_testing()
 add_executable(test_auth tests/test_auth.cpp src/utils/config_utils.cpp src/utils/password_utils.cpp src/utils/totp_utils.cpp src/auth_srv.cpp)
 target_include_directories(test_auth PRIVATE include)
-target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto argon2::argon2 Drogon::Drogon)
+target_link_libraries(test_auth PRIVATE Catch2::Catch2WithMain jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto libsodium::libsodium Drogon::Drogon)
 add_test(NAME test_auth COMMAND test_auth)
