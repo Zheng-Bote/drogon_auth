@@ -2,38 +2,57 @@
 
 The Drogon Auth Microservice uses a relational database (PostgreSQL or SQLite3) to manage users, sessions, and security-related data.
 
+## Entity Relationship Overview
+```mermaid
+erDiagram
+    USERS ||--o| USER_PROFILES : "has"
+    USERS ||--o{ USER_ROLES : "assigned"
+    USERS ||--o{ SESSIONS : "owns"
+    USERS ||--o{ LOGIN_ATTEMPTS : "records"
+    USERS ||--o{ USER_COMMUNICATIONS : "uses"
+    USERS ||--o| TOTP_SECRETS : "protected by"
+    ROLES ||--o{ USER_ROLES : "links to"
+    USERS ||--o{ AUDIT_LOGS : "logs actions"
+```
+
 ## Tables
 
 ### 1. `users`
 The core table for user accounts.
-- `password_hash`: Stores the Argon2id encoded string.
+- `password_hash`: Stores the Argon2id encoded string (libsodium format).
 - `is_active`: Global flag to enable/disable account.
+- `must_pwd_change`: Boolean flag for forcing password rotation.
 
 ### 2. `roles` & `user_roles`
 Implements Role-Based Access Control (RBAC).
-- Default roles: `admin`, `user`.
+- `roles`: `admin`, `user`.
 
 ### 3. `sessions`
 Server-side session storage. 
-- While the app uses `JSESSIONID` for active requests, this table provides persistence across server restarts and allows for session invalidation (e.g., from a different device).
+- `ip_address`: Uses `INET` type (PostgreSQL).
+- `expires_at`: Managed via trantor date-time.
 
 ### 4. `user_profiles`
-Stores non-authentication related user data (names, preferences).
+Stores personal data.
+- `first_name`, `last_name`, `preferred_language`, `timezone`.
 
 ### 5. `user_communications`
-An extensible table for contact methods. Supports multiple channels like email, phone, or messaging IDs.
+Contact methods for notifications. 
+- `channel`: Enum (`email`, `pushover`, `telegram`, `whatsapp`).
 
 ### 6. `totp_secrets`
-Stores secrets for Two-Factor Authentication (2FA). Secrets should be treated as highly sensitive.
+Sensitive secrets for Two-Factor Authentication.
+- If a record exists here for a user, MFA is enforced during login.
 
 ### 7. `audit_logs` & `login_attempts`
-Used for security monitoring and brute-force protection.
-- `login_attempts` tracks both successful and failed logins with IP address.
+Security monitoring.
+- `audit_logs`: Detailed JSON data for security-relevant events.
+- `login_attempts`: Specific tracking of auth success/failure with IP and user agent.
 
 ### 8. `password_resets`
-Manages tokens for the password recovery flow.
+Tokens for the secure password recovery flow.
 
-## Database Support
-The application supports:
-- **PostgreSQL**: Recommended for production (utilizes `pgcrypto` and `JSONB`).
-- **SQLite3**: Supported for local development or lightweight deployments.
+## Implementation Notes
+- **PostgreSQL**: Uses `pgcrypto` for UUID generation and `INET` for network addresses.
+- **SQLite3**: Compatibility layer using standard text/integer fields where specialized types aren't available.
+- **Transactions**: All operations involving multiple tables or security-critical data use explicit transactions with manual `COMMIT`.

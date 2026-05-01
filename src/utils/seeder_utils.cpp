@@ -75,10 +75,14 @@ drogon::Task<void> Seeder::ensureAdminExists() {
             userId, roleId
         );
 
-        LOG_INFO << "SUCCESS: Initial admin account created.";
-        LOG_INFO << "Login: " << adminUser << " / " << adminEmail;
-        LOG_INFO << "Initial password was taken from ADMIN_PASSWORD environment variable.";
+        // 7. Create Profile
+        co_await trans->execSqlCoro(
+            "INSERT INTO user_profiles (id, user_id) VALUES ($1, $2)",
+            drogon::utils::getUuid(), userId
+        );
 
+        LOG_INFO << "SUCCESS: Initial admin account and profile created.";
+        LOG_INFO << "Login: " << adminUser << " / " << adminEmail;
     } catch (const std::exception &e) {
         LOG_ERROR << "Seeder Exception: " << e.what();
     } catch (...) {
