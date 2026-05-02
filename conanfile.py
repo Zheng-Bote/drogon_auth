@@ -3,7 +3,7 @@ from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout, CMakeDeps
 
 class DrogonAuthConan(ConanFile):
     name = "drogon_auth"
-    version = "0.4.0"
+    version = "0.5.0"
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
 

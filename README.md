@@ -29,9 +29,9 @@ graph TD
 
 For more details, see:
 
-- [Detailed Architecture](./docs/documentation/architecture.md)
-- [Database Schema & ERD](./docs/documentation/database.md)
-- [Entity Relationship Diagram](./docs/architecture/erd_diagram.md)
+- [Detailed Architecture](./docs/architecture/architecture.md)
+- [Database Schema & ERD](./docs/database/database.md)
+- [Entity Relationship Diagram](./docs/database/erd_diagram.md)
 
 ## Quick Start
 
@@ -60,14 +60,9 @@ For more details, see:
 
 ## API Documentation
 
-The microservice provides endpoints for:
+Detailed information about all available API endpoints can be found here:
 
-- `POST /api/auth/v1/register`: User registration.
-- `POST /api/auth/v1/login`: User login (sets `JSESSIONID`).
-- `POST /api/auth/v1/logout`: User logout.
-- `GET /api/auth/v1/me`: Current user information (Protected).
-- `POST /api/auth/v1/totp/setup`: Setup 2FA (Protected).
-- `GET /api/auth/system/health-check`: Service health status.
+- [API Reference Documentation](./docs/api.md)
 
 ## License
 

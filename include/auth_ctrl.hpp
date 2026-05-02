@@ -33,6 +33,7 @@ public:
     ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::change_password, "/api/auth/v1/password/change", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::change_password_forced, "/api/auth/v1/password/change-forced", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::reset_password_request, "/api/auth/v1/password/reset-request", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::reset_password_confirm, "/api/auth/v1/password/reset-confirm", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::get_profile, "/api/auth/v1/profile", drogon::Get, "drogon_auth::middleware::AuthMiddleware");
@@ -47,6 +48,7 @@ public:
     drogon::Task<drogon::HttpResponsePtr> totp_setup(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> totp_verify(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> change_password(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> change_password_forced(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> reset_password_request(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> reset_password_confirm(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> get_profile(drogon::HttpRequestPtr req);

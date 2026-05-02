@@ -39,7 +39,7 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::list_users(drogon::HttpRequestP
     auto db = drogon::app().getDbClient();
     try {
         auto res = co_await db->execSqlCoro(
-            "SELECT id, loginname, email, is_active, created_at FROM users"
+            "SELECT id, loginname, email, is_active, must_pwd_change, created_at FROM users"
         );
 
         Json::Value ret(Json::arrayValue);
@@ -49,6 +49,7 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::list_users(drogon::HttpRequestP
             user["loginname"] = row["loginname"].as<std::string>();
             user["email"] = row["email"].as<std::string>();
             user["is_active"] = row["is_active"].as<bool>();
+            user["must_pwd_change"] = row["must_pwd_change"].as<bool>();
             user["created_at"] = row["created_at"].as<std::string>();
             ret.append(user);
         }
@@ -94,6 +95,7 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::create_user(drogon::HttpRequest
     std::string email = (*json)["email"].asString();
     std::string password = (*json)["password"].asString();
     bool is_active = json->isMember("is_active") ? (*json)["is_active"].asBool() : true;
+    bool must_pwd_change = json->isMember("must_pwd_change") ? (*json)["must_pwd_change"].asBool() : false;
 
     auto hash_result = AuthSrv::hash_password(password);
     if (!hash_result) {
@@ -108,8 +110,8 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::create_user(drogon::HttpRequest
         std::string user_id = drogon::utils::getUuid();
         
         co_await trans->execSqlCoro(
-            "INSERT INTO users (id, loginname, email, password_hash, is_active) VALUES ($1, $2, $3, $4, $5)",
-            user_id, loginname, email, hash_result.value(), is_active
+            "INSERT INTO users (id, loginname, email, password_hash, is_active, must_pwd_change) VALUES ($1, $2, $3, $4, $5, $6)",
+            user_id, loginname, email, hash_result.value(), is_active, must_pwd_change
         );
         
         co_await trans->execSqlCoro("INSERT INTO user_profiles (id, user_id) VALUES ($1, $2)", drogon::utils::getUuid(), user_id);
@@ -128,6 +130,20 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::create_user(drogon::HttpRequest
         ret["status"] = "success";
         ret["id"] = user_id;
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        co_return resp;
+    } catch (const drogon::orm::DrogonDbException& e) {
+        Json::Value ret;
+        ret["status"] = "error";
+        std::string err_msg = e.base().what();
+        if (err_msg.find("unique constraint") != std::string::npos || err_msg.find("already exists") != std::string::npos) {
+            ret["message"] = "Login name or email already exists";
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(drogon::k409Conflict);
+            co_return resp;
+        }
+        ret["message"] = "Database error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        resp->setStatusCode(drogon::k500InternalServerError);
         co_return resp;
     } catch (...) {
         auto resp = drogon::HttpResponse::newHttpResponse();
@@ -162,6 +178,9 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::update_user(drogon::HttpRequest
         }
         if (json->isMember("is_active")) {
             co_await trans->execSqlCoro("UPDATE users SET is_active = $1 WHERE id = $2", (*json)["is_active"].asBool(), user_id);
+        }
+        if (json->isMember("must_pwd_change")) {
+            co_await trans->execSqlCoro("UPDATE users SET must_pwd_change = $1 WHERE id = $2", (*json)["must_pwd_change"].asBool(), user_id);
         }
         if (json->isMember("password") && !(*json)["password"].asString().empty()) {
             auto hash = AuthSrv::hash_password((*json)["password"].asString());
@@ -234,6 +253,149 @@ drogon::Task<drogon::HttpResponsePtr> AdminCtrl::list_roles(drogon::HttpRequestP
         auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
         co_return resp;
     } catch (...) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k500InternalServerError);
+        co_return resp;
+    }
+}
+
+drogon::Task<drogon::HttpResponsePtr> AdminCtrl::create_role(drogon::HttpRequestPtr req) {
+    if (!co_await is_admin(req)) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k403Forbidden);
+        co_return resp;
+    }
+
+    auto json = req->getJsonObject();
+    if (!json || !json->isMember("name")) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k400BadRequest);
+        co_return resp;
+    }
+
+    std::string name = (*json)["name"].asString();
+    std::string description = json->isMember("description") ? (*json)["description"].asString() : "";
+
+    auto db = drogon::app().getDbClient();
+    try {
+        std::string role_id = drogon::utils::getUuid();
+        co_await db->execSqlCoro(
+            "INSERT INTO roles (id, name, description) VALUES ($1, $2, $3)",
+            role_id, name, description
+        );
+
+        Json::Value ret;
+        ret["status"] = "success";
+        ret["id"] = role_id;
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        co_return resp;
+    } catch (const drogon::orm::DrogonDbException& e) {
+        Json::Value ret;
+        ret["status"] = "error";
+        std::string err_msg = e.base().what();
+        if (err_msg.find("unique constraint") != std::string::npos || err_msg.find("already exists") != std::string::npos) {
+            ret["message"] = "Role name already exists";
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+            resp->setStatusCode(drogon::k409Conflict);
+            co_return resp;
+        }
+        ret["message"] = "Database error";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        resp->setStatusCode(drogon::k500InternalServerError);
+        co_return resp;
+    } catch (...) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k500InternalServerError);
+        co_return resp;
+    }
+}
+
+drogon::Task<drogon::HttpResponsePtr> AdminCtrl::update_role(drogon::HttpRequestPtr req, std::string role_id) {
+    if (!co_await is_admin(req)) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k403Forbidden);
+        co_return resp;
+    }
+
+    auto json = req->getJsonObject();
+    if (!json) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k400BadRequest);
+        co_return resp;
+    }
+
+    auto db = drogon::app().getDbClient();
+    try {
+        if (json->isMember("name")) {
+            co_await db->execSqlCoro("UPDATE roles SET name = $1 WHERE id = $2", (*json)["name"].asString(), role_id);
+        }
+        if (json->isMember("description")) {
+            co_await db->execSqlCoro("UPDATE roles SET description = $1 WHERE id = $2", (*json)["description"].asString(), role_id);
+        }
+
+        Json::Value ret;
+        ret["status"] = "success";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        co_return resp;
+    } catch (...) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k500InternalServerError);
+        co_return resp;
+    }
+}
+
+drogon::Task<drogon::HttpResponsePtr> AdminCtrl::delete_role(drogon::HttpRequestPtr req, std::string role_id) {
+    if (!co_await is_admin(req)) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k403Forbidden);
+        co_return resp;
+    }
+
+    auto db = drogon::app().getDbClient();
+    try {
+        // Note: In a real system, you might want to check if users are still assigned to this role
+        // or handle it via cascading deletes in the DB schema.
+        co_await db->execSqlCoro("DELETE FROM roles WHERE id = $1", role_id);
+        
+        Json::Value ret;
+        ret["status"] = "success";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        co_return resp;
+    } catch (...) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k500InternalServerError);
+        co_return resp;
+    }
+}
+
+drogon::Task<drogon::HttpResponsePtr> AdminCtrl::get_audit_summary(drogon::HttpRequestPtr req) {
+    if (!co_await is_admin(req)) {
+        auto resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(drogon::k403Forbidden);
+        co_return resp;
+    }
+
+    auto db = drogon::app().getDbClient();
+    try {
+        // Last 7 days summary
+        auto res = co_await db->execSqlCoro(
+            "SELECT action, count(*) as count FROM audit_logs "
+            "WHERE created_at > CURRENT_TIMESTAMP - INTERVAL '7 days' "
+            "GROUP BY action ORDER BY count DESC"
+        );
+
+        Json::Value ret(Json::arrayValue);
+        for (const auto& row : res) {
+            Json::Value item;
+            item["action"] = row["action"].as<std::string>();
+            item["count"] = row["count"].as<int64_t>();
+            ret.append(item);
+        }
+
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        co_return resp;
+    } catch (const std::exception& e) {
+        std::println(stderr, "Error in get_audit_summary: {}", e.what());
         auto resp = drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(drogon::k500InternalServerError);
         co_return resp;

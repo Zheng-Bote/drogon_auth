@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-02
+
+### Added
+- **Role CRUD**: Implemented full Create, Read, Update, and Delete functionality for system roles in `AdminCtrl`.
+- **Enhanced Security Metadata**: 
+    - `/api/auth/v1/me` and `/api/auth/v1/profile` now include 2FA status and last login/password change timestamps.
+    - Added `must_pwd_change` support to user management.
+- **Audit Summary**: New endpoint `/api/auth/admin/v1/audit/summary` providing activity counts for the last 7 days.
+- **Forced Password Change**: New endpoint `/api/auth/v1/password/change-forced` to handle mandatory password updates before session creation.
+
+### Changed
+- **Error Handling**: Improved `AdminCtrl` to catch database constraint violations and return `409 Conflict` with descriptive JSON messages (e.g., for duplicate loginnames or role names).
+- **Login Flow**: Updated authentication logic to detect `must_pwd_change` flag and return a specific status to the frontend.
+
 ## [0.4.0] - 2026-05-01
 ### Added
 - **Admin UI**: Full-featured web-based administration frontend built with Vue 3 and Quasar.

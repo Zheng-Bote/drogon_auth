@@ -7,8 +7,8 @@
  *
  * @file admin_ctrl.hpp
  * @brief Admin Controller for User and Role Management
- * @version 0.1.0
- * @date 2026-05-01
+ * @version 0.2.0
+ * @date 2026-05-02
  *
  * @author ZHENG Robert (robert@hase-zheng.net)
  * @copyright Copyright (c) 2026 ZHENG Robert
@@ -35,6 +35,14 @@ public:
                 drogon::Delete, "drogon_auth::middleware::AuthMiddleware");
   ADD_METHOD_TO(AdminCtrl::list_roles, "/api/auth/admin/v1/roles", drogon::Get,
                 "drogon_auth::middleware::AuthMiddleware");
+  ADD_METHOD_TO(AdminCtrl::create_role, "/api/auth/admin/v1/roles",
+                drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+  ADD_METHOD_TO(AdminCtrl::update_role, "/api/auth/admin/v1/roles/{id}",
+                drogon::Put, "drogon_auth::middleware::AuthMiddleware");
+  ADD_METHOD_TO(AdminCtrl::delete_role, "/api/auth/admin/v1/roles/{id}",
+                drogon::Delete, "drogon_auth::middleware::AuthMiddleware");
+  ADD_METHOD_TO(AdminCtrl::get_audit_summary, "/api/auth/admin/v1/audit/summary",
+                drogon::Get, "drogon_auth::middleware::AuthMiddleware");
   METHOD_LIST_END
 
   drogon::Task<drogon::HttpResponsePtr> list_users(drogon::HttpRequestPtr req);
@@ -44,6 +52,12 @@ public:
   drogon::Task<drogon::HttpResponsePtr> delete_user(drogon::HttpRequestPtr req,
                                                     std::string user_id);
   drogon::Task<drogon::HttpResponsePtr> list_roles(drogon::HttpRequestPtr req);
+  drogon::Task<drogon::HttpResponsePtr> create_role(drogon::HttpRequestPtr req);
+  drogon::Task<drogon::HttpResponsePtr> update_role(drogon::HttpRequestPtr req,
+                                                    std::string role_id);
+  drogon::Task<drogon::HttpResponsePtr> delete_role(drogon::HttpRequestPtr req,
+                                                    std::string role_id);
+  drogon::Task<drogon::HttpResponsePtr> get_audit_summary(drogon::HttpRequestPtr req);
 
 private:
   drogon::Task<bool> is_admin(const drogon::HttpRequestPtr &req);

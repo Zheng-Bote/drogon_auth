@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.31)
 # cmake --build --preset conan-debug --parallel $(nproc)
 
 project(drogon_auth
-    VERSION 0.4.0
+    VERSION 0.5.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
