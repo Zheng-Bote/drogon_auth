@@ -3,7 +3,7 @@ from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout, CMakeDeps
 
 class DrogonAuthConan(ConanFile):
     name = "drogon_auth"
-    version = "0.5.0"
+    version = "0.6.0"
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps", "CMakeToolchain"
 
@@ -28,6 +28,7 @@ class DrogonAuthConan(ConanFile):
         self.requires("libsodium/[>=1.0.21 <2]")
         self.requires("catch2/[>=3.14.0 <4]")
         self.requires("libcurl/[>=8.19.0 <9]")
+        self.requires("grpc/[>=1.54.0 <2]")
 
     def layout(self):
         cmake_layout(self)

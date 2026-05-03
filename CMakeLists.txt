@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.31)
 # cmake --build --preset conan-debug --parallel $(nproc)
 
 project(drogon_auth
-    VERSION 0.5.0
+    VERSION 0.6.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
@@ -54,6 +54,34 @@ find_package(OpenSSL REQUIRED)
 find_package(Catch2 REQUIRED)
 find_package(libsodium REQUIRED)
 find_package(CURL REQUIRED)
+find_package(gRPC REQUIRED)
+find_package(Protobuf REQUIRED)
+
+# --- Protobuf / gRPC Generation ---
+set(PROTO_FILE "proto/auth_service.proto")
+get_filename_component(PROTO_ABS_FILE "${PROTO_FILE}" ABSOLUTE)
+get_filename_component(PROTO_PATH "${PROTO_ABS_FILE}" PATH)
+
+set(PROTO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/proto_gen")
+file(MAKE_DIRECTORY "${PROTO_GEN_DIR}")
+
+set(PROTO_SRCS "${PROTO_GEN_DIR}/auth_service.pb.cc")
+set(PROTO_HDRS "${PROTO_GEN_DIR}/auth_service.pb.h")
+set(GRPC_SRCS "${PROTO_GEN_DIR}/auth_service.grpc.pb.cc")
+set(GRPC_HDRS "${PROTO_GEN_DIR}/auth_service.grpc.pb.h")
+
+add_custom_command(
+      OUTPUT "${PROTO_SRCS}" "${PROTO_HDRS}" "${GRPC_SRCS}" "${GRPC_HDRS}"
+      COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+      ARGS --cpp_out "${PROTO_GEN_DIR}"
+           --grpc_out "${PROTO_GEN_DIR}"
+           --plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
+           -I "${PROTO_PATH}"
+           "${PROTO_ABS_FILE}"
+      DEPENDS "${PROTO_ABS_FILE}" gRPC::grpc_cpp_plugin
+      COMMENT "Generating gRPC/Protobuf sources from ${PROTO_FILE}"
+      VERBATIM
+)
 
 # Force libpq to link against GSSAPI (because Conan built it with GSSAPI)
 if(TARGET libpq::libpq)
@@ -72,9 +100,12 @@ add_executable(${PROJECT_NAME}
     src/utils/totp_utils.cpp
     src/utils/password_utils.cpp
     src/utils/seeder_utils.cpp
+    src/grpc/auth_grpc_srv.cpp
+    ${PROTO_SRCS}
+    ${GRPC_SRCS}
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_include_directories(${PROJECT_NAME} PRIVATE include "${PROTO_GEN_DIR}")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Drogon::Drogon
@@ -85,6 +116,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     gh_update_checker::gh_update_checker
     drogon_audit_plugin::drogon_audit_plugin
     CURL::libcurl
+    gRPC::grpc++
+    gRPC::grpc++_reflection
+    protobuf::libprotobuf
 )
 
 # libs.txt Generate (timing-safe via GENERATE)

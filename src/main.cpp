@@ -16,10 +16,14 @@
  */
 #include "utils/config_utils.hpp"
 #include "utils/seeder_utils.hpp"
+#include "grpc/auth_grpc_srv.hpp"
 #include <drogon/drogon.h>
 #include <drogon/utils/coroutine.h>
 #include <string>
 #include <trantor/utils/Logger.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
+#include <thread>
 
 int main(int argc, char *argv[]) {
   // 1. Determine environment
@@ -38,12 +42,13 @@ int main(int argc, char *argv[]) {
 
   // Collect variables for Logger-Callback
   int port = drogon_auth::utils::ConfigUtil::get_int("SERVER_PORT", 8848);
+  int grpc_port = drogon_auth::utils::ConfigUtil::get_int("GRPC_PORT", 50051);
   std::string db_type =
       drogon_auth::utils::ConfigUtil::get_string("DB_TYPE", "postgres");
 
   // 3. Beginning Advice: Ensures logs end up in the FILE
   drogon::app().registerBeginningAdvice(
-      [env_path, drogon_config, port, db_type]() {
+      [env_path, drogon_config, port, grpc_port, db_type]() {
         LOG_INFO << "--- Drogon Auth Microservice starting ---";
         LOG_INFO << "Environment file: " << env_path;
         if (!drogon_config.empty()) {
@@ -52,6 +57,7 @@ int main(int argc, char *argv[]) {
           LOG_INFO << "Drogon configuration: (internal defaults)";
         }
         LOG_INFO << "Server port: " << port;
+        LOG_INFO << "gRPC port: " << grpc_port;
         LOG_INFO << "Database type: " << db_type;
 
         // Seeder: Ensure at least one admin exists
@@ -87,7 +93,28 @@ int main(int argc, char *argv[]) {
   LOG_INFO << "Drogon Auth Microservice starting on port " << port;
   drogon::app().addListener("0.0.0.0", port);
 
-  // 5. Run the application
+  // 5. Start gRPC server in a separate thread
+  std::thread grpc_thread([grpc_port]() {
+    std::string server_address("0.0.0.0:" + std::to_string(grpc_port));
+    drogon_auth::grpc::AuthGrpcServiceImpl service;
+
+    ::grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+    ::grpc::ServerBuilder builder;
+    builder.AddListeningPort(server_address,
+                             ::grpc::InsecureServerCredentials());
+    builder.RegisterService(&service);
+
+    std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
+    if (server) {
+      LOG_INFO << "gRPC Server listening on " << server_address;
+      server->Wait();
+    } else {
+      LOG_ERROR << "Failed to start gRPC Server on " << server_address;
+    }
+  });
+  grpc_thread.detach();
+
+  // 6. Run the application
   drogon::app().run();
 
   LOG_INFO << "--- Drogon Auth Microservice stopped ---";

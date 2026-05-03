@@ -8,6 +8,7 @@ A high-performance C++23 Authentication Microservice built on the [Drogon Framew
 - **Secure Authentication**: Argon2id password hashing and session-based authentication.
 - **Audit Logging**: Asynchronous database-backed action logging via `AuditLogPlugin`.
 - **Two-Factor Authentication**: TOTP support (Google/Microsoft Authenticator).
+- **gRPC Interface**: Native gRPC server for cross-microservice session and role verification.
 - **Role-Based Access Control**: Managed via database roles.
 - **Multi-DB Support**: PostgreSQL (Production) and SQLite3 (Development).
 - **Auto-Seeding**: Automatically ensures an admin account exists on startup.
@@ -20,9 +21,11 @@ The service follows a modular layered architecture:
 ```mermaid
 graph TD
     Client[HTTP Client] --> Middleware[AuthMiddleware]
+    Client_gRPC[gRPC Client] --> gRPC_Srv[AuthGrpcService]
     Middleware --> Controllers[Auth / System Controllers]
+    gRPC_Srv --> DB[(PostgreSQL / SQLite)]
     Controllers --> Plugins[AuditLogPlugin]
-    Plugins --> DB[(PostgreSQL / SQLite)]
+    Plugins --> DB
     Controllers --> Services[AuthSrv / Seeder]
     Services --> DB
 ```
@@ -50,7 +53,7 @@ For more details, see:
 2. Configure and build:
    ```bash
    cmake --preset conan-debug
-   cmake --build --preset conan-debug
+   cmake --build --preset conan-debug --parallel $(nproc)
    ```
 
 ### Configuration

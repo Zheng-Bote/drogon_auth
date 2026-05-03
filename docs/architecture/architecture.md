@@ -32,6 +32,15 @@ A single-page application (SPA) providing a user-friendly interface for administ
 - **Pinia**: State management for authentication status.
 - **Vite**: Modern build tool and development server with API proxy.
 
+### 3. gRPC Interface (C++ / gRPC)
+A native gRPC server running in a background thread.
+- **AuthGrpcServiceImpl**: Implements the `AuthService` defined in `auth_service.proto`.
+- **Functionality**:
+    - **Session Verification**: `GetUserStatus` verifies `JSESSIONID` and returns user status/roles.
+    - **Health Check**: `CheckHealth` provides server and database connectivity status.
+    - **User Data Retrieval**: `GetUserProfile` and `GetUserCommunications` provide detailed metadata for external services.
+- **Database Access**: Directly utilizes the `drogon::app().getDbClient()` for high-speed synchronous lookups.
+
 ## Security Flows
 
 ### Two-Factor Authentication (2FA) Flow
@@ -54,6 +63,21 @@ sequenceDiagram
     AuthCtrl->>DB: Create session record
     AuthCtrl-->>Frontend: 200 OK (status: success, Set-Cookie: JSESSIONID)
     Frontend->>User: Redirect to Dashboard
+```
+
+### Microservice Session Verification (gRPC) Flow
+```mermaid
+sequenceDiagram
+    participant ServiceB as External Microservice
+    participant Auth as Drogon Auth (gRPC)
+    participant DB as Database
+
+    ServiceB->>Auth: GetUserStatus(session_id)
+    Auth->>DB: Query session (token & expiry)
+    DB-->>Auth: session found (user_id)
+    Auth->>DB: Query user (active status & roles)
+    DB-->>Auth: active=true, roles=["user", "admin"]
+    Auth-->>ServiceB: UserStatusResponse(auth=true, roles=[...])
 ```
 
 ### Audit Logging

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-05-03
+
+### Added
+- **gRPC API**: Integrated a native gRPC server running alongside Drogon.
+- **Session Verification (gRPC)**: New `GetUserStatus` RPC method allowing other microservices to verify sessions and retrieve user roles and active status.
+- **Protobuf Support**: Added `proto/auth_service.proto` and build-time code generation.
+- **gRPC Configuration**: Added `GRPC_PORT` to environment configuration.
+
 ## [0.5.0] - 2026-05-02
 
 ### Added
