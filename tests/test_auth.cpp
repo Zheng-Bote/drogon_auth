@@ -35,8 +35,8 @@ TEST_CASE("TOTP Secret Generation", "[auth]") {
 }
 
 TEST_CASE("Session Token Generation", "[auth]") {
-    std::string token1 = drogon_auth::AuthSrv::generate_session_token();
-    std::string token2 = drogon_auth::AuthSrv::generate_session_token();
+    std::string token1 = drogon_auth::AuthSrv::generate_jwt_token("test1");
+    std::string token2 = drogon_auth::AuthSrv::generate_jwt_token("test2");
     REQUIRE(token1 != token2);
-    REQUIRE(token1.length() == 32);
+    REQUIRE(token1.length() > 32);
 }

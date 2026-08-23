@@ -27,9 +27,9 @@ constexpr std::string_view PROJECT_DESCRIPTION = "A high-performance C++23 Drogo
 
 constexpr std::string_view EXECUTABLE_NAME = "drogon_auth";
 
-constexpr std::string_view VERSION = "0.6.0";
+constexpr std::string_view VERSION = "0.7.0";
 constexpr std::int32_t PROJECT_VERSION_MAJOR { 0 };
-constexpr std::int32_t PROJECT_VERSION_MINOR { 6 };
+constexpr std::int32_t PROJECT_VERSION_MINOR { 7 };
 constexpr std::int32_t PROJECT_VERSION_PATCH { 0 };
 
 constexpr std::string_view PROJECT_HOMEPAGE_URL = "https://github.com/zheng-bote/drogon_auth";

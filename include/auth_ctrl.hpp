@@ -29,6 +29,7 @@ public:
     ADD_METHOD_TO(AuthCtrl::login, "/api/auth/v1/login", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::login_totp, "/api/auth/v1/login/totp", drogon::Post);
     ADD_METHOD_TO(AuthCtrl::logout, "/api/auth/v1/logout", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(AuthCtrl::refresh_session, "/api/auth/v1/refresh", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::me, "/api/auth/v1/me", drogon::Get, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::totp_setup, "/api/auth/v1/totp/setup", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
     ADD_METHOD_TO(AuthCtrl::totp_verify, "/api/auth/v1/totp/verify", drogon::Post, "drogon_auth::middleware::AuthMiddleware");
@@ -44,6 +45,7 @@ public:
     drogon::Task<drogon::HttpResponsePtr> login(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> login_totp(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> logout(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> refresh_session(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> me(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> totp_setup(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> totp_verify(drogon::HttpRequestPtr req);

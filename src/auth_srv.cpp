@@ -23,7 +23,9 @@
 #include <sstream>
 #include <cstring>
 #include <iomanip>
-
+#include <jwt-cpp/traits/open-source-parsers-jsoncpp/defaults.h>
+#include <jwt-cpp/jwt.h>
+#include <sodium.h>
 namespace drogon_auth {
 
 std::expected<std::string, std::string> AuthSrv::hash_password(const std::string& password) {
@@ -38,14 +40,33 @@ bool AuthSrv::verify_password(const std::string& password, const std::string& ha
     return drogon_auth::utils::PasswordUtils::verifyPassword(password, hash);
 }
 
-std::string AuthSrv::generate_session_token() {
-    std::random_device rd;
-    std::mt19937_64 gen(rd());
-    std::uniform_int_distribution<uint64_t> dis;
 
+
+std::string AuthSrv::generate_jwt_token(const std::string& user_id) {
+    if (sodium_init() < 0) {
+        throw std::runtime_error("libsodium initialization failed");
+    }
+
+    auto secret = drogon_auth::utils::ConfigUtil::get_string("JWT_SECRET", "default_insecure_secret");
+    
+    unsigned char rand_bytes[16];
+    randombytes_buf(rand_bytes, sizeof(rand_bytes));
     std::stringstream ss;
-    ss << std::hex << std::setfill('0') << std::setw(16) << dis(gen) << dis(gen);
-    return ss.str();
+    for (int i = 0; i < 16; ++i) {
+        ss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(rand_bytes[i]);
+    }
+    std::string jti = ss.str();
+
+    auto token = jwt::create()
+        .set_issuer("Drogon_Auth")
+        .set_type("JWS")
+        .set_subject(user_id)
+        .set_id(jti)
+        .set_issued_at(std::chrono::system_clock::now())
+        .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours{24})
+        .sign(jwt::algorithm::hs256{secret});
+
+    return token;
 }
 
 bool AuthSrv::verify_totp(const std::string& secret, const std::string& code) {

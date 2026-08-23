@@ -71,17 +71,17 @@ bool PasswordUtils::verifyPassword(const std::string &plainText,
 }
 
 std::string PasswordUtils::generateRandomPassword(int length) {
+  if (sodium_init() < 0) {
+    return "";
+  }
   const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const size_t max_index = sizeof(charset) - 1;
-
-  std::random_device rd;
-  std::mt19937 generator(rd());
-  std::uniform_int_distribution<size_t> distribution(0, max_index - 1);
+  const uint32_t charset_size = sizeof(charset) - 1;
 
   std::string password;
   password.reserve(static_cast<size_t>(length));
   for (int i = 0; i < length; ++i) {
-    password += charset[distribution(generator)];
+    uint32_t rand_val = randombytes_uniform(charset_size);
+    password += charset[rand_val];
   }
   return password;
 }

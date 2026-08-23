@@ -7,8 +7,13 @@
  */
 #include "auth_ctrl.hpp"
 #include "auth_srv.hpp"
+#include "db/auth_repository.hpp"
+#include "utils/password_utils.hpp"
 #include <drogon/utils/Utilities.h>
 #include <drogon/plugins/AuditLogPlugin.hpp>
+#include "cache/session_cache.hpp"
+#include "metrics_registry.hpp"
+#include "utils/rate_limiter.hpp"
 #include <print>
 
 namespace drogon_auth {
@@ -40,29 +45,16 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::register_user(drogon::HttpReques
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing failed");
     }
 
-    auto db = drogon::app().getDbClient();
-    try {
-        std::string user_id = drogon::utils::getUuid();
-
-        auto trans = co_await db->newTransactionCoro();
-        co_await trans->execSqlCoro(
-            "INSERT INTO users (id, loginname, email, password_hash) VALUES ($1, $2, $3, $4)",
-            user_id, loginname, email, hash_result.value()
-        );
-        co_await trans->execSqlCoro("INSERT INTO user_profiles (id, user_id) VALUES ($1, $2)", drogon::utils::getUuid(), user_id);
-        co_await trans->execSqlCoro("INSERT INTO user_communications (id, user_id, channel, address) VALUES ($1, $2, $3, $4)", 
-            drogon::utils::getUuid(), user_id, "email", email);
-
-        co_await trans->execSqlCoro("COMMIT");
-
+    std::string user_id = drogon::utils::getUuid();
+    bool success = co_await db::AuthRepository::create_user(user_id, loginname, email, hash_result.value());
+    
+    if (success) {
         Json::Value ret;
         ret["status"] = "success";
         ret["message"] = "User registered successfully";
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
-        co_return resp;
-
-    } catch (const drogon::orm::DrogonDbException &e) {
-        std::println(stderr, "DB Error in register_user: {}", e.base().what());
+        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
+    } else {
+        std::println(stderr, "DB Error in register_user");
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Database error");
     }
 }
@@ -77,85 +69,89 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login(drogon::HttpRequestPtr req
     std::string password = (*json)["password"].asString();
     std::string ip_address = req->peerAddr().toIp();
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro("SELECT id, loginname, password_hash, is_active, must_pwd_change FROM users WHERE loginname = $1 OR email = $1", ident);
-        
-        if (res.empty() || !res[0]["is_active"].as<bool>()) {
-            if (!res.empty()) {
-                co_await db->execSqlCoro("INSERT INTO login_attempts (id, user_id, loginname, ip_address, success) VALUES ($1, $2, $3, CAST($4 AS INET), $5)",
-                    drogon::utils::getUuid(), res[0]["id"].as<std::string>(), ident, ip_address, false);
-            }
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid credentials or account inactive");
-        }
-
-        std::string user_id = res[0]["id"].as<std::string>();
-        std::string hash = res[0]["password_hash"].as<std::string>();
-        bool must_pwd_change = res[0]["must_pwd_change"].as<bool>();
-
-        auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
-
-        if (!AuthSrv::verify_password(password, hash)) {
-            co_await db->execSqlCoro("INSERT INTO login_attempts (id, user_id, loginname, ip_address, success) VALUES ($1, $2, $3, CAST($4 AS INET), $5)",
-                drogon::utils::getUuid(), user_id, ident, ip_address, false);
-            
-            if (audit) audit->log(user_id, "login_failure", ip_address, Json::Value());
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid credentials");
-        }
-
-        // Check if password change is forced
-        if (must_pwd_change) {
-            Json::Value ret;
-            ret["status"] = "password_change_required";
-            ret["user_id"] = user_id;
-            co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        }
-
-        // Check if MFA (TOTP) is required
-        auto totp_res = co_await db->execSqlCoro("SELECT 1 FROM totp_secrets WHERE user_id = $1", user_id);
-        if (!totp_res.empty()) {
-            if (audit) audit->log(user_id, "mfa_required", ip_address, Json::Value());
-            
-            Json::Value ret;
-            ret["status"] = "mfa_required";
-            ret["user_id"] = user_id; // Frontend needs this for the second step
-            co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        }
-
-        // Success (No MFA)
-        co_await db->execSqlCoro("INSERT INTO login_attempts (id, user_id, loginname, ip_address, success) VALUES ($1, $2, $3, CAST($4 AS INET), $5)",
-            drogon::utils::getUuid(), user_id, ident, ip_address, true);
-        
-        if (audit) audit->log(user_id, "login_success", ip_address, Json::Value());
-
-        std::string token = AuthSrv::generate_session_token();
-        auto expires_at = trantor::Date::date().after(24 * 3600);
-        std::string expires_str = expires_at.toDbStringLocal();
-
-        co_await db->execSqlCoro("INSERT INTO sessions (id, user_id, session_token, expires_at, ip_address, user_agent) VALUES ($1, $2, $3, $4, CAST($5 AS INET), $6)",
-            drogon::utils::getUuid(), user_id, token, expires_str, ip_address, req->getHeader("User-Agent"));
-
-        Json::Value ret;
-        ret["status"] = "success";
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
-        
-        drogon::Cookie cookie("JSESSIONID", token);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        resp->addCookie(cookie);
-
-        auto session = req->session();
-        if (session) {
-            session->insert("authenticated", true);
-            session->insert("user_id", user_id);
-        }
-
-        co_return resp;
-
-    } catch (const std::exception &e) {
-        std::println(stderr, "Error in login: {}", e.what());
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+    // Rate Limiting (e.g. max 5 requests per 60 seconds)
+    if (!utils::RateLimiter::instance().is_allowed(ip_address, 5, 60)) {
+        co_return newJsonErrorResponse(drogon::k429TooManyRequests, "Too many login attempts. Please try again later.");
     }
+
+    auto user_opt = co_await db::AuthRepository::find_user_by_login_or_email(ident);
+    if (!user_opt || !user_opt->is_active) {
+        if (user_opt) {
+            co_await db::AuthRepository::record_login_attempt(user_opt->id, ident, ip_address, false);
+        }
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid credentials or account inactive");
+    }
+
+    auto user = user_opt.value();
+    auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+
+    if (!AuthSrv::verify_password(password, user.password_hash)) {
+        co_await db::AuthRepository::record_login_attempt(user.id, ident, ip_address, false);
+        if (audit) audit->log(user.id, "login_failure", ip_address, Json::Value());
+        metrics::MetricsRegistry::instance().record_auth_event(user.id, "login_failure", ip_address);
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid credentials");
+    }
+
+    if (user.must_pwd_change) {
+        Json::Value ret;
+        ret["status"] = "password_change_required";
+        ret["user_id"] = user.id;
+        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
+    }
+
+    bool totp_enabled = co_await db::AuthRepository::check_totp_enabled(user.id);
+    if (totp_enabled) {
+        if (audit) audit->log(user.id, "mfa_required", ip_address, Json::Value());
+        metrics::MetricsRegistry::instance().record_auth_event(user.id, "mfa_required", ip_address);
+        Json::Value ret;
+        ret["status"] = "mfa_required";
+        ret["user_id"] = user.id;
+        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
+    }
+
+    co_await db::AuthRepository::record_login_attempt(user.id, ident, ip_address, true);
+    if (audit) audit->log(user.id, "login_success", ip_address, Json::Value());
+    metrics::MetricsRegistry::instance().record_auth_event(user.id, "login_success", ip_address);
+
+    std::string token = AuthSrv::generate_jwt_token(user.id);
+    auto expires_at = trantor::Date::date().after(24 * 3600);
+    
+    // Sprint 7: Device-Awareness (Warnungen bei neuem Gerät)
+    auto last_session_opt = co_await db::AuthRepository::get_last_session_for_user(user.id);
+    if (!last_session_opt || (last_session_opt->ip_address != ip_address || last_session_opt->user_agent != req->getHeader("User-Agent"))) {
+        if (audit) audit->log(user.id, "new_device_login", ip_address, Json::Value());
+        metrics::MetricsRegistry::instance().record_auth_event(user.id, "new_device_login", ip_address);
+    }
+
+    std::string csrf_token = drogon::utils::getUuid();
+    bool session_created = co_await db::AuthRepository::create_session(drogon::utils::getUuid(), user.id, token, expires_at.toDbStringLocal(), ip_address, req->getHeader("User-Agent"), csrf_token);
+    if (!session_created) {
+        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Failed to create session");
+    }
+
+    cache::SessionMeta meta{user.id, ip_address, req->getHeader("User-Agent"), expires_at.toDbStringLocal(), csrf_token};
+    cache::SessionCache::instance().put_session(token, meta);
+
+    Json::Value ret;
+    ret["status"] = "success";
+    ret["csrf_token"] = csrf_token;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+    
+    drogon::Cookie cookie("JSESSIONID", token);
+    cookie.setPath("/");
+    cookie.setHttpOnly(true);
+    cookie.setSecure(true);
+    cookie.setSameSite(drogon::Cookie::SameSite::kStrict);
+    resp->addCookie(cookie);
+
+    auto session = req->session();
+    if (session) {
+        session->insert("authenticated", true);
+        session->insert("user_id", user.id);
+        session->insert("csrf_token", csrf_token);
+    }
+
+    co_return resp;
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login_totp(drogon::HttpRequestPtr req) {
@@ -168,51 +164,52 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::login_totp(drogon::HttpRequestPt
     std::string code = (*json)["code"].asString();
     std::string ip_address = req->peerAddr().toIp();
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto totp_res = co_await db->execSqlCoro("SELECT secret FROM totp_secrets WHERE user_id = $1", user_id);
-        if (totp_res.empty()) {
-            co_return newJsonErrorResponse(drogon::k400BadRequest, "TOTP not enabled");
-        }
-
-        std::string secret = totp_res[0]["secret"].as<std::string>();
-        auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
-
-        if (!AuthSrv::verify_totp(secret, code)) {
-            if (audit) audit->log(user_id, "mfa_failure", ip_address, Json::Value());
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid MFA code");
-        }
-
-        // MFA Success
-        if (audit) audit->log(user_id, "login_success_mfa", ip_address, Json::Value());
-
-        std::string token = AuthSrv::generate_session_token();
-        auto expires_at = trantor::Date::date().after(24 * 3600);
-        
-        co_await db->execSqlCoro("INSERT INTO sessions (id, user_id, session_token, expires_at, ip_address, user_agent) VALUES ($1, $2, $3, $4, CAST($5 AS INET), $6)",
-            drogon::utils::getUuid(), user_id, token, expires_at.toDbStringLocal(), ip_address, req->getHeader("User-Agent"));
-
-        Json::Value ret;
-        ret["status"] = "success";
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
-        
-        drogon::Cookie cookie("JSESSIONID", token);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        resp->addCookie(cookie);
-
-        auto session = req->session();
-        if (session) {
-            session->insert("authenticated", true);
-            session->insert("user_id", user_id);
-        }
-
-        co_return resp;
-
-    } catch (const std::exception &e) {
-        std::println(stderr, "Error in login_totp: {}", e.what());
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+    if (!utils::RateLimiter::instance().is_allowed(ip_address, 5, 60)) {
+        co_return newJsonErrorResponse(drogon::k429TooManyRequests, "Too many MFA attempts. Please try again later.");
     }
+
+    auto secret_opt = co_await db::AuthRepository::get_totp_secret(user_id);
+    if (!secret_opt) {
+        co_return newJsonErrorResponse(drogon::k400BadRequest, "TOTP not enabled");
+    }
+
+    auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+    if (!AuthSrv::verify_totp(secret_opt.value(), code)) {
+        if (audit) audit->log(user_id, "mfa_failure", ip_address, Json::Value());
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid MFA code");
+    }
+
+    if (audit) audit->log(user_id, "login_success_mfa", ip_address, Json::Value());
+
+    std::string token = AuthSrv::generate_jwt_token(user_id);
+    auto expires_at = trantor::Date::date().after(24 * 3600);
+    
+    std::string csrf_token = drogon::utils::getUuid();
+    co_await db::AuthRepository::create_session(drogon::utils::getUuid(), user_id, token, expires_at.toDbStringLocal(), ip_address, req->getHeader("User-Agent"), csrf_token);
+
+    cache::SessionMeta meta{user_id, ip_address, req->getHeader("User-Agent"), expires_at.toDbStringLocal(), csrf_token};
+    cache::SessionCache::instance().put_session(token, meta);
+
+    Json::Value ret;
+    ret["status"] = "success";
+    ret["csrf_token"] = csrf_token;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+    
+    drogon::Cookie cookie("JSESSIONID", token);
+    cookie.setPath("/");
+    cookie.setHttpOnly(true);
+    cookie.setSecure(true);
+    cookie.setSameSite(drogon::Cookie::SameSite::kStrict);
+    resp->addCookie(cookie);
+
+    auto session = req->session();
+    if (session) {
+        session->insert("authenticated", true);
+        session->insert("user_id", user_id);
+        session->insert("csrf_token", csrf_token);
+    }
+
+    co_return resp;
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr req) {
@@ -230,10 +227,8 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr re
 
     auto session_cookie = req->getCookie("JSESSIONID");
     if (!session_cookie.empty()) {
-        auto db = drogon::app().getDbClient();
-        try {
-            co_await db->execSqlCoro("DELETE FROM sessions WHERE session_token = $1", session_cookie);
-        } catch (...) {}
+        co_await db::AuthRepository::delete_session(session_cookie);
+        cache::SessionCache::instance().remove_session(session_cookie);
     }
 
     Json::Value ret;
@@ -248,80 +243,104 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::logout(drogon::HttpRequestPtr re
     co_return resp;
 }
 
+drogon::Task<drogon::HttpResponsePtr> AuthCtrl::refresh_session(drogon::HttpRequestPtr req) {
+    auto session_cookie = req->getCookie("JSESSIONID");
+    if (session_cookie.empty()) {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "No session");
+    }
+
+    auto session_opt = cache::SessionCache::instance().get_session(session_cookie);
+    if (!session_opt) {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Session expired or invalid");
+    }
+    
+    auto expires_at = trantor::Date::date().after(24 * 3600);
+    bool refreshed = co_await db::AuthRepository::refresh_session(session_cookie, expires_at.toDbStringLocal());
+    
+    if (refreshed) {
+        if (session_opt) {
+            auto meta = session_opt.value();
+            meta.expires_at = expires_at.toDbStringLocal();
+            cache::SessionCache::instance().put_session(session_cookie, meta);
+        }
+
+        Json::Value ret;
+        ret["status"] = "success";
+        ret["message"] = "Session refreshed";
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(ret);
+        
+        drogon::Cookie cookie("JSESSIONID", session_cookie);
+        cookie.setPath("/");
+        cookie.setHttpOnly(true);
+        // Extend cookie expiration on client side
+        // Typically JSESSIONID is session cookie, but if we want to extend we can set max_age
+        resp->addCookie(cookie);
+        
+        co_return resp;
+    } else {
+        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Failed to refresh session");
+    }
+}
+
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::me(drogon::HttpRequestPtr req) {
     auto session_cookie = req->getCookie("JSESSIONID");
     if (session_cookie.empty()) {
         co_return newJsonErrorResponse(drogon::k401Unauthorized, "No session");
     }
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro(
-            "SELECT u.id, u.loginname, u.email FROM users u "
-            "JOIN sessions s ON u.id = s.user_id "
-            "WHERE s.session_token = $1 AND s.expires_at > CURRENT_TIMESTAMP", 
-            session_cookie
-        );
-
-        if (res.empty()) {
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Session expired or invalid");
-        }
-
-        std::string user_id = res[0]["id"].as<std::string>();
-        
-        // Fetch 2FA status and last login
-        auto totp_res = co_await db->execSqlCoro("SELECT 1 FROM totp_secrets WHERE user_id = $1", user_id);
-        auto last_login_res = co_await db->execSqlCoro(
-            "SELECT created_at FROM login_attempts WHERE user_id = $1 AND success = true ORDER BY created_at DESC LIMIT 1 OFFSET 1",
-            user_id
-        );
-
-        Json::Value ret;
-        ret["id"] = user_id;
-        ret["loginname"] = res[0]["loginname"].as<std::string>();
-        ret["email"] = res[0]["email"].as<std::string>();
-        ret["two_factor_enabled"] = !totp_res.empty();
-        ret["last_login"] = last_login_res.empty() ? "" : last_login_res[0]["created_at"].as<std::string>();
-        
-        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-
-    } catch (const drogon::orm::DrogonDbException &e) {
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+    auto user_id_opt = co_await db::AuthRepository::get_user_id_by_session(session_cookie);
+    if (!user_id_opt) {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Session expired or invalid");
     }
+    
+    std::string user_id = user_id_opt.value();
+    auto user_opt = co_await db::AuthRepository::find_user_by_id(user_id);
+    if (!user_opt) {
+        co_return newJsonErrorResponse(drogon::k404NotFound, "User not found");
+    }
+
+    bool totp_enabled = co_await db::AuthRepository::check_totp_enabled(user_id);
+    auto last_login_opt = co_await db::AuthRepository::get_last_login_date(user_id);
+    auto perms = co_await db::AuthRepository::get_user_permissions(user_id);
+    auto roles = co_await db::AuthRepository::get_user_roles(user_id);
+
+    Json::Value ret;
+    ret["id"] = user_id;
+    ret["loginname"] = user_opt->loginname;
+    ret["email"] = user_opt->email;
+    ret["two_factor_enabled"] = totp_enabled;
+    ret["last_login"] = last_login_opt.value_or("");
+    
+    Json::Value roles_json(Json::arrayValue);
+    for (const auto& r : roles) roles_json.append(r);
+    ret["roles"] = roles_json;
+    
+    Json::Value perms_json(Json::arrayValue);
+    for (const auto& p : perms) perms_json.append(p);
+    ret["permissions"] = perms_json;
+
+    co_return drogon::HttpResponse::newHttpJsonResponse(ret);
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::totp_setup(drogon::HttpRequestPtr req) {
     auto session_cookie = req->getCookie("JSESSIONID");
-    if (session_cookie.empty()) {
-        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
-    }
+    if (session_cookie.empty()) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro("SELECT user_id FROM sessions WHERE session_token = $1 AND expires_at > CURRENT_TIMESTAMP", session_cookie);
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
+    auto user_id_opt = co_await db::AuthRepository::get_user_id_by_session(session_cookie);
+    if (!user_id_opt) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
 
-        std::string user_id = res[0]["user_id"].as<std::string>();
-        std::string secret = AuthSrv::generate_totp_secret();
-        
-        auto trans = co_await db->newTransactionCoro();
-        auto existing = co_await trans->execSqlCoro("SELECT id FROM totp_secrets WHERE user_id = $1", user_id);
-        if (existing.empty()) {
-            co_await trans->execSqlCoro("INSERT INTO totp_secrets (id, user_id, secret, issuer) VALUES ($1, $2, $3, $4)",
-                drogon::utils::getUuid(), user_id, secret, "PhotoGallery");
-        } else {
-            co_await trans->execSqlCoro("UPDATE totp_secrets SET secret = $1 WHERE user_id = $2", secret, user_id);
-        }
-        co_await trans->execSqlCoro("COMMIT");
-
-        Json::Value ret;
-        ret["secret"] = secret;
-        ret["otpauth_uri"] = "otpauth://totp/PhotoGallery?secret=" + secret + "&issuer=PhotoGallery";
-        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-
-    } catch (...) {
+    std::string user_id = user_id_opt.value();
+    std::string secret = AuthSrv::generate_totp_secret();
+    
+    bool success = co_await db::AuthRepository::upsert_totp_secret(user_id, secret);
+    if (!success) {
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
     }
+
+    Json::Value ret;
+    ret["secret"] = secret;
+    ret["otpauth_uri"] = "otpauth://totp/Drogon%20Auth?secret=" + secret + "&issuer=Drogon%20Auth";
+    co_return drogon::HttpResponse::newHttpJsonResponse(ret);
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::totp_verify(drogon::HttpRequestPtr req) {
@@ -332,28 +351,23 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::totp_verify(drogon::HttpRequestP
     }
     
     std::string code = (*json)["code"].asString();
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro("SELECT user_id FROM sessions WHERE session_token = $1 AND expires_at > CURRENT_TIMESTAMP", session_cookie);
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
+    
+    auto user_id_opt = co_await db::AuthRepository::get_user_id_by_session(session_cookie);
+    if (!user_id_opt) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
+    
+    std::string user_id = user_id_opt.value();
+    auto secret_opt = co_await db::AuthRepository::get_totp_secret(user_id);
+    if (!secret_opt) co_return newJsonErrorResponse(drogon::k400BadRequest, "TOTP not setup");
+    
+    if (AuthSrv::verify_totp(secret_opt.value(), code)) {
+        auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
+        if (audit) audit->log(user_id, "totp_activated", req->peerAddr().toIp(), Json::Value());
         
-        std::string user_id = res[0]["user_id"].as<std::string>();
-        auto totp_res = co_await db->execSqlCoro("SELECT secret FROM totp_secrets WHERE user_id = $1", user_id);
-        if (totp_res.empty()) co_return newJsonErrorResponse(drogon::k400BadRequest, "TOTP not setup");
-        
-        std::string secret = totp_res[0]["secret"].as<std::string>();
-        if (AuthSrv::verify_totp(secret, code)) {
-            auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
-            if (audit) audit->log(user_id, "totp_activated", req->peerAddr().toIp(), Json::Value());
-            
-            Json::Value ret;
-            ret["status"] = "success";
-            co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        } else {
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid TOTP code");
-        }
-    } catch (...) {
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+        Json::Value ret;
+        ret["status"] = "success";
+        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
+    } else {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Invalid TOTP code");
     }
 }
 
@@ -367,36 +381,28 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::change_password(drogon::HttpRequ
     std::string old_pw = (*json)["old_password"].asString();
     std::string new_pw = (*json)["new_password"].asString();
     
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro(
-            "SELECT u.id, u.password_hash FROM users u "
-            "JOIN sessions s ON u.id = s.user_id "
-            "WHERE s.session_token = $1 AND s.expires_at > CURRENT_TIMESTAMP", 
-            session_cookie
-        );
-
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
-        
-        std::string hash = res[0]["password_hash"].as<std::string>();
-        std::string user_id = res[0]["id"].as<std::string>();
-        
-        if (!AuthSrv::verify_password(old_pw, hash)) {
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Current password incorrect");
-        }
-        
-        auto new_hash = AuthSrv::hash_password(new_pw);
-        if (!new_hash) co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing error");
-        
-        co_await db->execSqlCoro("UPDATE users SET password_hash = $1, must_pwd_change = false WHERE id = $2", new_hash.value(), user_id);
-        
+    auto user_id_opt = co_await db::AuthRepository::get_user_id_by_session(session_cookie);
+    if (!user_id_opt) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
+    
+    std::string user_id = user_id_opt.value();
+    auto user_opt = co_await db::AuthRepository::find_user_by_id(user_id);
+    if (!user_opt) co_return newJsonErrorResponse(drogon::k404NotFound, "User not found");
+    
+    if (!AuthSrv::verify_password(old_pw, user_opt->password_hash)) {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Current password incorrect");
+    }
+    
+    auto new_hash = AuthSrv::hash_password(new_pw);
+    if (!new_hash) co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing error");
+    
+    if (co_await db::AuthRepository::update_password(user_id, new_hash.value())) {
         auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
         if (audit) audit->log(user_id, "password_changed", req->peerAddr().toIp(), Json::Value());
 
         Json::Value ret;
         ret["status"] = "success";
         co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-    } catch (...) {
+    } else {
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
     }
 }
@@ -411,31 +417,28 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::change_password_forced(drogon::H
     std::string old_pw = (*json)["old_password"].asString();
     std::string new_pw = (*json)["new_password"].asString();
     
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro("SELECT password_hash, must_pwd_change FROM users WHERE id = $1", user_id);
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k404NotFound, "User not found");
-        
-        if (!res[0]["must_pwd_change"].as<bool>()) {
-            co_return newJsonErrorResponse(drogon::k400BadRequest, "Password change not forced");
-        }
-        
-        if (!AuthSrv::verify_password(old_pw, res[0]["password_hash"].as<std::string>())) {
-            co_return newJsonErrorResponse(drogon::k401Unauthorized, "Current password incorrect");
-        }
-        
-        auto new_hash = AuthSrv::hash_password(new_pw);
-        if (!new_hash) co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing error");
-        
-        co_await db->execSqlCoro("UPDATE users SET password_hash = $1, must_pwd_change = false WHERE id = $2", new_hash.value(), user_id);
-        
+    auto user_opt = co_await db::AuthRepository::find_user_by_id(user_id);
+    if (!user_opt) co_return newJsonErrorResponse(drogon::k404NotFound, "User not found");
+    
+    if (!user_opt->must_pwd_change) {
+        co_return newJsonErrorResponse(drogon::k400BadRequest, "Password change not forced");
+    }
+    
+    if (!AuthSrv::verify_password(old_pw, user_opt->password_hash)) {
+        co_return newJsonErrorResponse(drogon::k401Unauthorized, "Current password incorrect");
+    }
+    
+    auto new_hash = AuthSrv::hash_password(new_pw);
+    if (!new_hash) co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing error");
+    
+    if (co_await db::AuthRepository::update_password(user_id, new_hash.value())) {
         auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
         if (audit) audit->log(user_id, "password_changed_forced", req->peerAddr().toIp(), Json::Value());
 
         Json::Value ret;
         ret["status"] = "success";
         co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-    } catch (...) {
+    } else {
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
     }
 }
@@ -445,65 +448,52 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::reset_password_request(drogon::H
     if (!json || !json->isMember("email")) co_return newJsonErrorResponse(drogon::k400BadRequest, "Email required");
     
     std::string email = (*json)["email"].asString();
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro("SELECT id FROM users WHERE email = $1", email);
-        if (!res.empty()) {
-            std::string user_id = res[0]["id"].as<std::string>();
-            std::string token = AuthSrv::generate_session_token();
-            auto expires_at = trantor::Date::date().after(3600);
-            
-            co_await db->execSqlCoro(
-                "INSERT INTO password_resets (id, user_id, token, expires_at) VALUES ($1, $2, $3, $4)",
-                drogon::utils::getUuid(), user_id, token, expires_at.toDbStringLocal()
-            );
-            
-            Json::Value ret;
-            ret["status"] = "success";
-            ret["token"] = token; // MOCK ONLY
-            co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        }
-        Json::Value ret;
-        ret["status"] = "success";
-        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        
-    } catch (...) {
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+    std::string ip_address = req->peerAddr().toIp();
+
+    if (!utils::RateLimiter::instance().is_allowed(ip_address, 3, 300)) {
+        co_return newJsonErrorResponse(drogon::k429TooManyRequests, "Too many password reset requests. Please try again later.");
     }
+
+    auto user_id_opt = co_await db::AuthRepository::find_user_by_email(email);
+    
+    if (user_id_opt) {
+        std::string token = drogon_auth::utils::PasswordUtils::generateRandomPassword(32);
+        auto expires_at = trantor::Date::date().after(3600);
+        
+        co_await db::AuthRepository::create_password_reset(user_id_opt.value(), token, expires_at.toDbStringLocal());
+        // TODO: Send token via Email Service
+    }
+    
+    Json::Value ret;
+    ret["status"] = "success";
+    co_return drogon::HttpResponse::newHttpJsonResponse(ret);
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::reset_password_confirm(drogon::HttpRequestPtr req) {
     auto json = req->getJsonObject();
-    if (!json || !json->isMember("token") || !json->isMember("new_password")) co_return newJsonErrorResponse(drogon::k400BadRequest, "Invalid request");
+    if (!json || !json->isMember("token") || !json->isMember("new_password")) {
+        co_return newJsonErrorResponse(drogon::k400BadRequest, "Invalid request");
+    }
     
     std::string token = (*json)["token"].asString();
     std::string new_pw = (*json)["new_password"].asString();
     
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro(
-            "SELECT user_id FROM password_resets WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP AND used = 0", 
-            token
-        );
-        
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k400BadRequest, "Token invalid or expired");
-        
-        std::string user_id = res[0]["user_id"].as<std::string>();
-        auto new_hash = AuthSrv::hash_password(new_pw);
-        
-        auto trans = co_await db->newTransactionCoro();
-        co_await trans->execSqlCoro("UPDATE users SET password_hash = $1 WHERE id = $2", new_hash.value(), user_id);
-        co_await trans->execSqlCoro("UPDATE password_resets SET used = 1 WHERE token = $1", token);
-        co_await trans->execSqlCoro("COMMIT");
-        
+    auto user_id_opt = co_await db::AuthRepository::find_user_by_reset_token(token);
+    if (!user_id_opt) co_return newJsonErrorResponse(drogon::k400BadRequest, "Token invalid or expired");
+    
+    std::string user_id = user_id_opt.value();
+    auto new_hash = AuthSrv::hash_password(new_pw);
+    if (!new_hash) co_return newJsonErrorResponse(drogon::k500InternalServerError, "Hashing error");
+    
+    if (co_await db::AuthRepository::update_password(user_id, new_hash.value())) {
+        co_await db::AuthRepository::mark_reset_token_used(token);
         auto audit = drogon::app().getPlugin<drogon::plugins::AuditLogPlugin>();
         if (audit) audit->log(user_id, "password_reset_confirm", req->peerAddr().toIp(), Json::Value());
 
         Json::Value ret;
         ret["status"] = "success";
         co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-        
-    } catch (...) {
+    } else {
         co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
     }
 }
@@ -513,45 +503,33 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::get_profile(drogon::HttpRequestP
     if (!session || !session->find("user_id")) co_return newJsonErrorResponse(drogon::k401Unauthorized, "Unauthorized");
     std::string user_id = session->get<std::string>("user_id");
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto res = co_await db->execSqlCoro(
-            "SELECT p.first_name, p.last_name, p.preferred_language, p.locale, p.timezone, u.loginname, u.email, u.updated_at as last_pwd_change "
-            "FROM user_profiles p JOIN users u ON p.user_id = u.id WHERE p.user_id = $1", 
-            user_id
-        );
+    auto profile_opt = co_await db::AuthRepository::get_user_profile(user_id);
+    if (!profile_opt) co_return newJsonErrorResponse(drogon::k404NotFound, "Profile not found");
+    
+    auto p = profile_opt.value();
 
-        if (res.empty()) co_return newJsonErrorResponse(drogon::k404NotFound, "Profile not found");
+    Json::Value ret;
+    ret["first_name"] = p.first_name;
+    ret["last_name"] = p.last_name;
+    ret["preferred_language"] = p.preferred_language;
+    ret["locale"] = p.locale;
+    ret["timezone"] = p.timezone;
+    ret["loginname"] = p.loginname;
+    ret["email"] = p.email;
+    ret["two_factor_enabled"] = p.two_factor_enabled;
+    ret["last_password_change"] = p.last_password_change;
 
-        auto totp_res = co_await db->execSqlCoro("SELECT 1 FROM totp_secrets WHERE user_id = $1", user_id);
-
-        Json::Value ret;
-        ret["first_name"] = res[0]["first_name"].as<std::string>();
-        ret["last_name"] = res[0]["last_name"].as<std::string>();
-        ret["preferred_language"] = res[0]["preferred_language"].as<std::string>();
-        ret["locale"] = res[0]["locale"].as<std::string>();
-        ret["timezone"] = res[0]["timezone"].as<std::string>();
-        ret["loginname"] = res[0]["loginname"].as<std::string>();
-        ret["email"] = res[0]["email"].as<std::string>();
-        ret["two_factor_enabled"] = !totp_res.empty();
-        ret["last_password_change"] = res[0]["last_pwd_change"].as<std::string>();
-
-        auto comm_res = co_await db->execSqlCoro("SELECT channel, address, is_active, verified FROM user_communications WHERE user_id = $1", user_id);
-        Json::Value comms(Json::arrayValue);
-        for (const auto& row : comm_res) {
-            Json::Value c;
-            c["channel"] = row["channel"].as<std::string>();
-            c["address"] = row["address"].as<std::string>();
-            c["is_active"] = row["is_active"].as<bool>();
-            c["verified"] = row["verified"].as<bool>();
-            comms.append(c);
-        }
-        ret["communications"] = comms;
-        co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-
-    } catch (...) {
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Server error");
+    Json::Value comms(Json::arrayValue);
+    for (const auto& c : p.communications) {
+        Json::Value jc;
+        jc["channel"] = c.channel;
+        jc["address"] = c.address;
+        jc["is_active"] = c.is_active;
+        jc["verified"] = c.verified;
+        comms.append(jc);
     }
+    ret["communications"] = comms;
+    co_return drogon::HttpResponse::newHttpJsonResponse(ret);
 }
 
 drogon::Task<drogon::HttpResponsePtr> AuthCtrl::update_profile(drogon::HttpRequestPtr req) {
@@ -562,41 +540,12 @@ drogon::Task<drogon::HttpResponsePtr> AuthCtrl::update_profile(drogon::HttpReque
     auto json = req->getJsonObject();
     if (!json) co_return newJsonErrorResponse(drogon::k400BadRequest, "Invalid JSON");
 
-    auto db = drogon::app().getDbClient();
-    try {
-        auto trans = co_await db->newTransactionCoro();
-        
-        co_await trans->execSqlCoro(
-            "INSERT INTO user_profiles (id, user_id) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING",
-            drogon::utils::getUuid(), user_id
-        );
-
-        if (json->isMember("first_name")) co_await trans->execSqlCoro("UPDATE user_profiles SET first_name = $1 WHERE user_id = $2", (*json)["first_name"].asString(), user_id);
-        if (json->isMember("last_name")) co_await trans->execSqlCoro("UPDATE user_profiles SET last_name = $1 WHERE user_id = $2", (*json)["last_name"].asString(), user_id);
-        if (json->isMember("preferred_language")) co_await trans->execSqlCoro("UPDATE user_profiles SET preferred_language = $1 WHERE user_id = $2", (*json)["preferred_language"].asString(), user_id);
-        if (json->isMember("timezone")) co_await trans->execSqlCoro("UPDATE user_profiles SET timezone = $1 WHERE user_id = $2", (*json)["timezone"].asString(), user_id);
-
-        if (json->isMember("communications") && (*json)["communications"].isArray()) {
-            co_await trans->execSqlCoro("DELETE FROM user_communications WHERE user_id = $1", user_id);
-            for (const auto& c : (*json)["communications"]) {
-                co_await trans->execSqlCoro(
-                    "INSERT INTO user_communications (id, user_id, channel, address, is_active) VALUES ($1, $2, CAST($3 AS communication_channel), $4, $5)",
-                    drogon::utils::getUuid(), user_id, c["channel"].asString(), c["address"].asString(), c.get("is_active", true).asBool()
-                );
-            }
-        }
-        co_await trans->execSqlCoro("COMMIT");
-
+    if (co_await db::AuthRepository::update_user_profile(user_id, *json)) {
         Json::Value ret;
         ret["status"] = "success";
         co_return drogon::HttpResponse::newHttpJsonResponse(ret);
-
-    } catch (const std::exception& e) {
-        std::println(stderr, "Error in update_profile: {}", e.what());
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, std::string("Database error: ") + e.what());
-    } catch (...) {
-        std::println(stderr, "Unknown error in update_profile");
-        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Unknown server error");
+    } else {
+        co_return newJsonErrorResponse(drogon::k500InternalServerError, "Database error");
     }
 }
 

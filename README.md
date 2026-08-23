@@ -30,42 +30,39 @@ graph TD
     Services --> DB
 ```
 
-For more details, see:
+For more details, see our comprehensive English documentation:
 
-- [Detailed Architecture](./docs/architecture/architecture.md)
-- [Database Schema & ERD](./docs/database/database.md)
-- [Entity Relationship Diagram](./docs/database/erd_diagram.md)
+- [Architecture & Database](./docs/ARCHITECTURE.md)
+- [API Reference](./docs/API_DOCUMENTATION.md)
+- [Security Guide](./docs/SECURITY_GUIDE.md)
+- [Developer Guide](./docs/DEVELOPER_GUIDE.md)
+- [Operations Guide](./docs/OPERATIONS_GUIDE.md)
+- [Troubleshooting](./docs/TROUBLESHOOTING.md)
 
 ## Quick Start
 
 ### Prerequisites
 
 - C++23 Compiler (GCC 13+, Clang 16+)
-- CMake 3.28+
+- CMake 3.31+
 - Conan 2.x
 
 ### Build
 
 1. Install dependencies:
    ```bash
-   conan install . --output-folder=build --build=missing -s build_type=Debug
+   conan install . --output-folder=build --build=missing -s build_type=Release
    ```
 2. Configure and build:
    ```bash
-   cmake --preset conan-debug
-   cmake --build --preset conan-debug --parallel $(nproc)
+   cmake --preset conan-release
+   cmake --build --preset conan-release -j$(nproc)
    ```
 
 ### Configuration
 
 1. Copy `data/_.env.example` to `.env` and adjust the values.
 2. Adjust `data/config.example.json` if needed and point `DROGON_CONFIG_FILE` in your `.env` to it.
-
-## API Documentation
-
-Detailed information about all available API endpoints can be found here:
-
-- [API Reference Documentation](./docs/api.md)
 
 ## License
 

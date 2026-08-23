@@ -33,12 +33,14 @@ public:
     ADD_METHOD_TO(SystemCtrl::healthCheck, "/api/auth/system/health-check", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::checkUpdate, "/api/auth/system/check-update", drogon::Get);
     ADD_METHOD_TO(SystemCtrl::sysInfo, "/api/auth/system/sys-info", drogon::Get, "drogon_auth::middleware::AuthMiddleware");
+    ADD_METHOD_TO(SystemCtrl::metrics, "/api/auth/system/metrics", drogon::Get);
     METHOD_LIST_END
 
     drogon::Task<drogon::HttpResponsePtr> getVersion(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> healthCheck(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> checkUpdate(drogon::HttpRequestPtr req);
     drogon::Task<drogon::HttpResponsePtr> sysInfo(drogon::HttpRequestPtr req);
+    drogon::Task<drogon::HttpResponsePtr> metrics(drogon::HttpRequestPtr req);
 };
 
 } // namespace drogon_auth

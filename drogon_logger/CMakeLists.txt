@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.31)
 # cmake --preset conan-debug
 # cmake --build --preset conan-debug --parallel $(nproc)
 
-project(drogon_auth
-    VERSION 0.7.0
+project(drogon_worker
+    VERSION 0.1.0
     DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
@@ -96,10 +96,6 @@ add_executable(${PROJECT_NAME}
     src/admin_ctrl.cpp
     src/system_ctrl.cpp
     src/auth_middleware.cpp
-    src/db/auth_repository.cpp
-    src/db/admin_repository.cpp
-    src/cache/session_cache.cpp
-    src/rbac/rbac_service.cpp
     src/utils/config_utils.cpp
     src/utils/totp_utils.cpp
     src/utils/password_utils.cpp

@@ -34,7 +34,7 @@ class AuthSrv {
 public:
     [[nodiscard]] static std::expected<std::string, std::string> hash_password(const std::string& password);
     [[nodiscard]] static bool verify_password(const std::string& password, const std::string& hash);
-    [[nodiscard]] static std::string generate_session_token();
+    [[nodiscard]] static std::string generate_jwt_token(const std::string& user_id);
     [[nodiscard]] static bool verify_totp(const std::string& secret, const std::string& code);
     [[nodiscard]] static std::string generate_totp_secret();
 };

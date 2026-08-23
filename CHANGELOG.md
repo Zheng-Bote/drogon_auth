@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-23
+
+### Added
+- **Session Protection**: Implemented strict Client Fingerprinting (IP & User-Agent). Invalid sessions trigger `requires_reauth`.
+- **CSRF Tokens**: All state-mutating requests now require an `X-CSRF-TOKEN` header validated against the session cache.
+- **In-Memory Cache**: Replaced DB lookups for sessions in `AuthMiddleware` with a high-performance, thread-safe `SessionCache` (`unordered_map` with `std::shared_mutex`).
+- **Audit RingBuffer**: Created `LockFreeRingBuffer` via Atomics to store the most recent 100 authentication events in memory with zero-copy/lock-free performance.
+- **Security Hardening**: Implemented Token-Bucket `RateLimiter` to protect login, TOTP, and password reset endpoints from brute-force attacks.
+- **Device Awareness**: Trigger `new_device_login` audit events when a user logs in from an unknown IP or device.
+- **Cookie Security**: Enforced `Secure` and `SameSite=Strict` flags for `JSESSIONID` cookies.
+- **TLS Configuration**: Native support for binding to TLS via Drogon directly (`SERVER_SSL_CERT` and `SERVER_SSL_KEY`).
+- **Comprehensive Documentation**: Restructured `docs/` and provided fully consolidated, English-language Architecture, API, Security, Developer, Operations, and Troubleshooting guides.
+
+### Changed
+- **CMake Target**: Updated minimum CMake version to 3.31 and switched default build instructions to Release (`conan-release`).
+- **System Endpoints**: `/api/auth/system/sys-info` now retrieves and returns the backend `database_version` dynamically.
+- **Session Refresh**: Added `/api/auth/v1/refresh` endpoint to manually extend active sessions for 24h.
+- **Background Workers**: Hooked coroutine tasks into Drogon's `getLoop()->runEvery()` to asynchronously clean up expired database sessions (every 5min) and sync the In-Memory Cache (every 1min).
+
 ## [0.6.0] - 2026-05-03
 
 ### Added

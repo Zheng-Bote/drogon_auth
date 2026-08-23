@@ -30,13 +30,16 @@ static const char *B32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 namespace drogon_auth {
 namespace utils {
 
-std::string TotpUtils::generateSecret() {
-  std::random_device rd;
-  std::uniform_int_distribution<int> dist(0, 31);
+#include <sodium.h>
 
+std::string TotpUtils::generateSecret() {
+  if (sodium_init() < 0) {
+    return "";
+  }
   std::string secret;
   for (int i = 0; i < 32; ++i) {
-    secret += B32_CHARS[dist(rd)];
+    uint32_t rand_val = randombytes_uniform(32);
+    secret += B32_CHARS[rand_val];
   }
   return secret;
 }
