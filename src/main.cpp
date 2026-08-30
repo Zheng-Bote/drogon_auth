@@ -124,12 +124,12 @@ int main(int argc, char *argv[]) {
     std::string db_password =
         drogon_auth::utils::ConfigUtil::get_string("DB_PASSWORD", "");
 
-    drogon::app().createDbClient("postgresql", db_host, db_port, db_name,
+    drogon::app().addDbClient("postgresql", db_host, db_port, db_name,
                                  db_user, db_password, 1, "", "default");
   } else if (db_type == "sqlite3") {
     std::string sqlite_file = drogon_auth::utils::ConfigUtil::get_string(
         "SQLITE_FILE", "gallery.sqlite3");
-    drogon::app().createDbClient("sqlite3", "", 0, "", "", "", 1, sqlite_file,
+    drogon::app().addDbClient("sqlite3", "", 0, "", "", "", 1, sqlite_file,
                                  "default");
   }
 

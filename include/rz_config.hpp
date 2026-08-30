@@ -23,7 +23,7 @@ namespace rz {
 namespace config {
 constexpr std::string_view PROJECT_NAME = "drogon_auth";
 constexpr std::string_view PROG_LONGNAME = "Drogon Authentication Microservice";
-constexpr std::string_view PROJECT_DESCRIPTION = "A high-performance C++23 Drogon-based Authentication Microservice";
+constexpr std::string_view PROJECT_DESCRIPTION = "A high-performance C++26 Drogon-based Authentication Microservice";
 
 constexpr std::string_view EXECUTABLE_NAME = "drogon_auth";
 
@@ -42,7 +42,7 @@ constexpr std::string_view LICENSE = "Apache-2.0";
 constexpr std::string_view ORGANIZATION = "ZHENG Robert";
 constexpr std::string_view PROJECT_DOMAIN = "net.hase-zheng";
 
-constexpr std::string_view CMAKE_CXX_STANDARD = "c++23";
+constexpr std::string_view CMAKE_CXX_STANDARD = "c++26";
 constexpr std::string_view CMAKE_CXX_COMPILER =
     "GNU 15.2.0";
 constexpr std::string_view QT_VERSION_BUILD = "";

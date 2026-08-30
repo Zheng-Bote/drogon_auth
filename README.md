@@ -1,10 +1,10 @@
 # Drogon Auth Microservice
 
-A high-performance C++23 Authentication Microservice built on the [Drogon Framework](https://drogon.org).
+A high-performance C++26 Authentication Microservice built on the [Drogon Framework](https://drogon.org).
 
 ## Features
 
-- **Modern C++**: Built with C++23 standards and C++20 Coroutines.
+- **Modern C++**: Built with C++26 standards and C++20 Coroutines.
 - **Secure Authentication**: Argon2id password hashing and session-based authentication.
 - **Audit Logging**: Asynchronous database-backed action logging via `AuditLogPlugin`.
 - **Two-Factor Authentication**: TOTP support (Google/Microsoft Authenticator).
@@ -43,7 +43,7 @@ For more details, see our comprehensive English documentation:
 
 ### Prerequisites
 
-- C++23 Compiler (GCC 13+, Clang 16+)
+- C++23 Compiler (GCC 15+, Clang 20+)
 - CMake 3.31+
 - Conan 2.x
 

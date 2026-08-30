@@ -6,12 +6,12 @@ cmake_minimum_required(VERSION 3.31)
 
 project(drogon_worker
     VERSION 0.1.0
-    DESCRIPTION "A high-performance C++23 Drogon-based Authentication Microservice"
+    DESCRIPTION "A high-performance C++26 Drogon-based Authentication Microservice"
     HOMEPAGE_URL "https://github.com/zheng-bote/drogon_auth"
     LANGUAGES CXX C
 )
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
